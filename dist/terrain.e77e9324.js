@@ -36278,9 +36278,9 @@ exports.MapControls = MapControls;
 MapControls.prototype = Object.create(_threeModule.EventDispatcher.prototype);
 MapControls.prototype.constructor = MapControls;
 },{"../../../build/three.module.js":"../node_modules/three/build/three.module.js"}],"shader/vertexShader.glsl":[function(require,module,exports) {
-module.exports = "#define GLSLIFY 1\nuniform float uTime;\nuniform float uSize;\nuniform float uNoise;\nuniform float ustate;\n\nvarying vec3 vColor;\n\nattribute vec3 aRandom;\n\n/**\nnoise\n*/\n// Classic Perlin 3D Noise \n// by Stefan Gustavson\n//\nvec4 permute(vec4 x)\n{\n    return mod(((x*34.0)+1.0)*x, 289.0);\n}\nvec4 taylorInvSqrt(vec4 r)\n{\n    return 1.79284291400159 - 0.85373472095314 * r;\n}\nvec3 fade(vec3 t)\n{\n    return t*t*t*(t*(t*6.0-15.0)+10.0);\n}\n\nfloat cnoise(vec3 P)\n{\n    vec3 Pi0 = floor(P); // Integer part for indexing\n    vec3 Pi1 = Pi0 + vec3(1.0); // Integer part + 1\n    Pi0 = mod(Pi0, 289.0);\n    Pi1 = mod(Pi1, 289.0);\n    vec3 Pf0 = fract(P); // Fractional part for interpolation\n    vec3 Pf1 = Pf0 - vec3(1.0); // Fractional part - 1.0\n    vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);\n    vec4 iy = vec4(Pi0.yy, Pi1.yy);\n    vec4 iz0 = Pi0.zzzz;\n    vec4 iz1 = Pi1.zzzz;\n\n    vec4 ixy = permute(permute(ix) + iy);\n    vec4 ixy0 = permute(ixy + iz0);\n    vec4 ixy1 = permute(ixy + iz1);\n\n    vec4 gx0 = ixy0 / 7.0;\n    vec4 gy0 = fract(floor(gx0) / 7.0) - 0.5;\n    gx0 = fract(gx0);\n    vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);\n    vec4 sz0 = step(gz0, vec4(0.0));\n    gx0 -= sz0 * (step(0.0, gx0) - 0.5);\n    gy0 -= sz0 * (step(0.0, gy0) - 0.5);\n\n    vec4 gx1 = ixy1 / 7.0;\n    vec4 gy1 = fract(floor(gx1) / 7.0) - 0.5;\n    gx1 = fract(gx1);\n    vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);\n    vec4 sz1 = step(gz1, vec4(0.0));\n    gx1 -= sz1 * (step(0.0, gx1) - 0.5);\n    gy1 -= sz1 * (step(0.0, gy1) - 0.5);\n\n    vec3 g000 = vec3(gx0.x,gy0.x,gz0.x);\n    vec3 g100 = vec3(gx0.y,gy0.y,gz0.y);\n    vec3 g010 = vec3(gx0.z,gy0.z,gz0.z);\n    vec3 g110 = vec3(gx0.w,gy0.w,gz0.w);\n    vec3 g001 = vec3(gx1.x,gy1.x,gz1.x);\n    vec3 g101 = vec3(gx1.y,gy1.y,gz1.y);\n    vec3 g011 = vec3(gx1.z,gy1.z,gz1.z);\n    vec3 g111 = vec3(gx1.w,gy1.w,gz1.w);\n\n    vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));\n    g000 *= norm0.x;\n    g010 *= norm0.y;\n    g100 *= norm0.z;\n    g110 *= norm0.w;\n    vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));\n    g001 *= norm1.x;\n    g011 *= norm1.y;\n    g101 *= norm1.z;\n    g111 *= norm1.w;\n\n    float n000 = dot(g000, Pf0);\n    float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));\n    float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));\n    float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));\n    float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));\n    float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));\n    float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));\n    float n111 = dot(g111, Pf1);\n\n    vec3 fade_xyz = fade(Pf0);\n    vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);\n    vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);\n    float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x); \n    return 2.2 * n_xyz;\n}\n\nvoid main() {\n\nvec3 pos = position;\npos.x += sin(uTime * aRandom.x) * 0.01;\npos.y += cos(uTime * aRandom.x) * 0.01;\npos.z += cos(uTime * aRandom.x) * 0.01;\n\nfloat u=1.;\nfloat v1 = .3*(.5-length(pos.zx)) + uTime * u;\n    float v2 = .1*(.5-length(pos.xy)) + uTime * u;\n    float v3 = 1.5*(.5-length(pos.zy))+ uTime * u;\n    if (ustate==0.0){\n    pos.x -= cnoise(vec3( v1*.5, v2*.5, v3)) * uNoise*.5;\n    pos.z += cnoise(vec3( v1*.5, v2*.5, v3)) * uNoise*.5;\n    }\n\n    vec4 mvPosition = modelViewMatrix * vec4( pos, 1.0 );\n    gl_Position = projectionMatrix * mvPosition;\n\n    gl_PointSize = 8.0 / -mvPosition.z;\n\n    vColor = vec3(1.); \n}\n\n";
+module.exports = "#define GLSLIFY 1\nuniform float uTime;\nuniform float uSize;\nuniform float uNoise;\nuniform float ustate;\n\nvarying vec3 vColor;\nvarying vec3 vNormal;\n\nattribute vec3 aRandom;\n\n/**\nnoise\n*/\n// Classic Perlin 3D Noise \n// by Stefan Gustavson\n//\nvec4 permute(vec4 x)\n{\n    return mod(((x*34.0)+1.0)*x, 289.0);\n}\nvec4 taylorInvSqrt(vec4 r)\n{\n    return 1.79284291400159 - 0.85373472095314 * r;\n}\nvec3 fade(vec3 t)\n{\n    return t*t*t*(t*(t*6.0-15.0)+10.0);\n}\n\nfloat cnoise(vec3 P)\n{\n    vec3 Pi0 = floor(P); // Integer part for indexing\n    vec3 Pi1 = Pi0 + vec3(1.0); // Integer part + 1\n    Pi0 = mod(Pi0, 289.0);\n    Pi1 = mod(Pi1, 289.0);\n    vec3 Pf0 = fract(P); // Fractional part for interpolation\n    vec3 Pf1 = Pf0 - vec3(1.0); // Fractional part - 1.0\n    vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);\n    vec4 iy = vec4(Pi0.yy, Pi1.yy);\n    vec4 iz0 = Pi0.zzzz;\n    vec4 iz1 = Pi1.zzzz;\n\n    vec4 ixy = permute(permute(ix) + iy);\n    vec4 ixy0 = permute(ixy + iz0);\n    vec4 ixy1 = permute(ixy + iz1);\n\n    vec4 gx0 = ixy0 / 7.0;\n    vec4 gy0 = fract(floor(gx0) / 7.0) - 0.5;\n    gx0 = fract(gx0);\n    vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);\n    vec4 sz0 = step(gz0, vec4(0.0));\n    gx0 -= sz0 * (step(0.0, gx0) - 0.5);\n    gy0 -= sz0 * (step(0.0, gy0) - 0.5);\n\n    vec4 gx1 = ixy1 / 7.0;\n    vec4 gy1 = fract(floor(gx1) / 7.0) - 0.5;\n    gx1 = fract(gx1);\n    vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);\n    vec4 sz1 = step(gz1, vec4(0.0));\n    gx1 -= sz1 * (step(0.0, gx1) - 0.5);\n    gy1 -= sz1 * (step(0.0, gy1) - 0.5);\n\n    vec3 g000 = vec3(gx0.x,gy0.x,gz0.x);\n    vec3 g100 = vec3(gx0.y,gy0.y,gz0.y);\n    vec3 g010 = vec3(gx0.z,gy0.z,gz0.z);\n    vec3 g110 = vec3(gx0.w,gy0.w,gz0.w);\n    vec3 g001 = vec3(gx1.x,gy1.x,gz1.x);\n    vec3 g101 = vec3(gx1.y,gy1.y,gz1.y);\n    vec3 g011 = vec3(gx1.z,gy1.z,gz1.z);\n    vec3 g111 = vec3(gx1.w,gy1.w,gz1.w);\n\n    vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));\n    g000 *= norm0.x;\n    g010 *= norm0.y;\n    g100 *= norm0.z;\n    g110 *= norm0.w;\n    vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));\n    g001 *= norm1.x;\n    g011 *= norm1.y;\n    g101 *= norm1.z;\n    g111 *= norm1.w;\n\n    float n000 = dot(g000, Pf0);\n    float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));\n    float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));\n    float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));\n    float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));\n    float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));\n    float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));\n    float n111 = dot(g111, Pf1);\n\n    vec3 fade_xyz = fade(Pf0);\n    vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);\n    vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);\n    float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x); \n    return 2.2 * n_xyz;\n}\n\nvoid main() {\n    vec3 pos = position;\n    vNormal = normal;\n   \n\n    vec4 mvPosition = modelViewMatrix * vec4( pos, 1.0 );\n    gl_Position = projectionMatrix * mvPosition;\n\n    gl_Position.y += 5.7*cnoise(pos.yzx*0.5+0.5*uTime);\n\n    gl_PointSize = 8.0 / -mvPosition.z;\n    vColor = vec3(1.); \n}\n\n";
 },{}],"shader/fragmentShader.glsl":[function(require,module,exports) {
-module.exports = "#define GLSLIFY 1\n\n// void main() {\n//     float strength = distance(gl_PointCoord, vec2(0.5));\n//     strength = 1.0 - step(0.5,strength);\n//     vec3 color =mix(vec3(0.0),vColor, strength); \n\n//     // gl_FragColor = vec4(color,1.0);\n//         gl_FragColor = vec4(1.0);\n// }\n\nvoid main() {\n     float strength = distance(gl_PointCoord, vec2(0.5));\n    strength = 1.0 - step(0.5,strength);\n       vec3 color =vec3(1.0); \n\n gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);\n gl_FragColor = vec4(color,1.0);\n}";
+module.exports = "#define GLSLIFY 1\n\n // varying vec3 vPosition;\nvarying vec3 vNormal;\n\nvoid main() {\n//      float strength = distance(gl_PointCoord, vec2(0.5));\n//      strength = 1.0 - step(0.5,strength);\n\n     float diff = dot(vec3(2.,4.,0.),vNormal);\n     vec3 color =vec3(0.4941, 0.098, 0.098); \n\n     gl_FragColor = vec4(color,1.0);\n    // gl_FragColor = vec4(diff+0.8);\n}";
 },{}],"terrain.js":[function(require,module,exports) {
 "use strict";
 
@@ -36318,7 +36318,13 @@ document.body.appendChild(renderer.domElement);
 var scene = new THREE.Scene();
 var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
 camera.position.z = 5;
-camera.position.y = 1;
+camera.position.y = 1; // ambient light
+
+scene.add(new THREE.AmbientLight('blue', 0.1)); // directional light
+
+var light = new THREE.DirectionalLight(0xffffff, 0.5);
+light.position.set(100, 100, -20);
+scene.add(light);
 /* -------------------------------------------------------------------------- */
 
 /*                                    mesh                                    */
@@ -36361,10 +36367,10 @@ var controls = new _OrbitControls.OrbitControls(camera, renderer.domElement);
 
 /* -------------------------------------------------------------------------- */
 
-var gridHelper = new THREE.GridHelper(10, 10); // scene.add(gridHelper);
-
-var axesHelper = new THREE.AxesHelper(5); // scene.add(axesHelper);
-
+var gridHelper = new THREE.GridHelper(10, 10);
+scene.add(gridHelper);
+var axesHelper = new THREE.AxesHelper(5);
+scene.add(axesHelper);
 var blocker = document.getElementById('blocker');
 blocker.style.display = 'none';
 controls.addEventListener('start', function () {
@@ -36392,9 +36398,12 @@ window.addEventListener('resize', onWindowResize, false);
 
 /* -------------------------------------------------------------------------- */
 
+var clock = new THREE.Clock();
+
 var animate = function animate() {
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
+  planeMaterial.uniforms.uTime.value = clock.getElapsedTime();
 };
 
 animate();
@@ -36426,7 +36435,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "50061" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "62493" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
