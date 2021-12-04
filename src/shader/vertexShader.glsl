@@ -1,9 +1,3 @@
-// void main() {
-//   vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-//   gl_Position = projectionMatrix * mvPosition;
-//   gl_PointSize = 8.0 / -mvPosition.z;
-// }
-
 uniform float uTime;
 uniform float uSize;
 uniform float uNoise;
@@ -118,7 +112,6 @@ pos.x += sin(uTime * aRandom.x) * 0.01;
 pos.y += cos(uTime * aRandom.x) * 0.01;
 pos.z += cos(uTime * aRandom.x) * 0.01;
 
-pos *= uSize;
 float u=1.;
 float v1 = .3*(.5-length(pos.zx)) + uTime * u;
     float v2 = .1*(.5-length(pos.xy)) + uTime * u;
@@ -133,19 +126,8 @@ float v1 = .3*(.5-length(pos.zx)) + uTime * u;
     gl_Position = projectionMatrix * mvPosition;
 
     gl_PointSize = 8.0 / -mvPosition.z;
-    // gl_PointSize *= 1.0 / - (mvPosition.z*.01);
 
-    vColor = vec3(1.)* (-1./(mvPosition.z*.845)); 
+    vColor = vec3(1.); 
 }
 
 
-// void main() {
-//     vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-//     vec4 viewPosition = viewMatrix * mvPosition;
-//     gl_Position = projectionMatrix * viewPosition;
-
-//     gl_PointSize = 8.0 / -mvPosition.z;
-//     // gl_PointSize *= 1.0 / - (viewPosition.z*.185);
-
-//     // vColor = vec3(1.)* (-1./(viewPosition.z*.045)); 
-// }
