@@ -31,7 +31,12 @@ camera.position.y = 1;
 /*                                    mesh                                    */
 /* -------------------------------------------------------------------------- */
 
-const geometry = new THREE.PlaneGeometry(10, 10);
+let wplane = 1500;
+let hplane = 1500;
+
+let nw = noise
+
+const geometry = new THREE.PlaneGeometry(10, 10,1500,1500);
 const material = new THREE.MeshBasicMaterial({
     color: 0x00ff00,
     side: THREE.DoubleSide,
@@ -73,16 +78,6 @@ const sheep = new Model({
     // /Users/zane/Desktop/workshop point cloud/static/model/
     scene: scene
 })
-
-
-// const group = new THREE.Group();
-// group.add(new Element('SJOz3qjfQXU', 0, 0, 120, 0));
-// group.add(new Element('Y2-xZ-1HE-Q', 120, 0, 0, Math.PI / 2));
-// group.add(new Element('IrydklNpcFI', 0, 0, -120, Math.PI));
-// group.add(new Element('9ubytEsCaS0', -120, 0, 0, -Math.PI / 2));
-// scene.add(group);
-
-// Block iframe events when dragging camera
 
 const blocker = document.getElementById('blocker');
 blocker.style.display = 'none';
