@@ -26,6 +26,12 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.position.z = 5;
 camera.position.y = 1;
+// ambient light
+scene.add(new THREE.AmbientLight('blue', 0.1));
+// directional light
+var light = new THREE.DirectionalLight(0xffffff, 0.5);
+light.position.set(100, 100, -20);
+scene.add(light);
 
 
 /* -------------------------------------------------------------------------- */
@@ -64,9 +70,9 @@ const controls = new OrbitControls(camera, renderer.domElement);
 /*                                   guides                                   */
 /* -------------------------------------------------------------------------- */
 const gridHelper = new THREE.GridHelper(10, 10);
-// scene.add(gridHelper);
+ scene.add(gridHelper);
 const axesHelper = new THREE.AxesHelper(5);
-// scene.add(axesHelper);
+ scene.add(axesHelper);
 
 
 
@@ -99,8 +105,10 @@ window.addEventListener('resize', onWindowResize, false);
 /* -------------------------------------------------------------------------- */
 /*                                    loop                                    */
 /* -------------------------------------------------------------------------- */
+const clock = new THREE.Clock();
 const animate = function() {
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
+    planeMaterial.uniforms.uTime.value = clock.getElapsedTime();
 };
 animate();
