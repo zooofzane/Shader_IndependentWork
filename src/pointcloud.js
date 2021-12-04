@@ -31,12 +31,13 @@ camera.position.y = 1;
 /*                                    mesh                                    */
 /* -------------------------------------------------------------------------- */
 
-const geometry = new THREE.BoxGeometry(2, 2, 2);
+const geometry = new THREE.PlaneGeometry(10, 10);
 const material = new THREE.MeshBasicMaterial({
     color: 0x00ff00,
+    side: THREE.DoubleSide,
 });
-const cube = new THREE.Mesh(geometry, material);
-// scene.add(cube);
+const plain = new THREE.Mesh(geometry, material);
+scene.add(plain);
 
 
 /* -------------------------------------------------------------------------- */

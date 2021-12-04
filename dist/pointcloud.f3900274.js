@@ -45407,12 +45407,13 @@ camera.position.y = 1;
 
 /* -------------------------------------------------------------------------- */
 
-var geometry = new THREE.BoxGeometry(2, 2, 2);
+var geometry = new THREE.PlaneGeometry(10, 10);
 var material = new THREE.MeshBasicMaterial({
-  color: 0x00ff00
+  color: 0x00ff00,
+  side: THREE.DoubleSide
 });
-var cube = new THREE.Mesh(geometry, material); // scene.add(cube);
-
+var plain = new THREE.Mesh(geometry, material);
+scene.add(plain);
 /* -------------------------------------------------------------------------- */
 
 /*                              [camera controler]                              */
@@ -45517,7 +45518,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "53740" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "50061" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
