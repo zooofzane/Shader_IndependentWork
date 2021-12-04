@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import vertex from './shader/vertexShader.glsl'
 import fragment from './shader/fragmentShader.glsl'
+// import Text from './text.js'
 
 /* -------------------------------------------------------------------------- */
 /*                                  renderer                                  */
@@ -12,6 +13,7 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
+
 
 
 /* -------------------------------------------------------------------------- */
@@ -32,6 +34,19 @@ scene.add(new THREE.AmbientLight('blue', 0.1));
 var light = new THREE.DirectionalLight(0xffffff, 0.5);
 light.position.set(100, 100, -20);
 scene.add(light);
+
+
+/* -------------------------------------------------------------------------- */
+/*                                    light                                   */
+/* -------------------------------------------------------------------------- */
+const dirLight = new THREE.DirectionalLight( 0xffffff, 0.125 );
+dirLight.position.set( 0, 0, 1 ).normalize();
+scene.add( dirLight );
+
+const pointLight = new THREE.PointLight( 0xffffff, 1.5 );
+pointLight.position.set( 0, 100, 90 );
+scene.add( pointLight );
+
 
 
 /* -------------------------------------------------------------------------- */

@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 
  // varying vec3 vPosition;
 varying vec3 vNormal;
@@ -12,4 +13,13 @@ void main() {
 
      gl_FragColor = vec4(color,1.0);
     // gl_FragColor = vec4(diff+0.8);
+=======
+void main() {
+      float strength = distance(gl_PointCoord, vec2(0.5));
+      strength = 1.0 - step(0.5, strength);
+      vec3 color = vec3(1.0);
+
+      gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+      gl_FragColor = vec4(color, 1.0);
+>>>>>>> Stashed changes
 }
