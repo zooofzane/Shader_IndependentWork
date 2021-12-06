@@ -8,6 +8,8 @@ import {
 import {
     FontLoader
 } from 'three/examples/jsm/loaders/FontLoader.js'
+import vertex from './shader/vertexShader.glsl'
+import fragment from './shader/fragmentShader.glsl'
 
 // var typeface = require('three.regular.helvetiker');
 // THREE.typeface_js.loadFace(typeface);
@@ -159,8 +161,10 @@ window.addEventListener('resize', onWindowResize, false);
 /* -------------------------------------------------------------------------- */
 /*                                    loop                                    */
 /* -------------------------------------------------------------------------- */
-const animate = function () {
+const clock = new THREE.Clock();
+const animate = function() {
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
+    planeMaterial.uniforms.uTime.value = clock.getElapsedTime();
 };
 animate();
