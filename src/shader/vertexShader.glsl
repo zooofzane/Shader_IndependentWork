@@ -5,6 +5,8 @@ uniform float ustate;
 
 varying vec3 vColor;
 varying vec3 vNormal;
+varying vec3 vNN; 
+varying vec3 vEye;
 
 attribute vec3 aRandom;
 
@@ -95,7 +97,7 @@ float cnoise(vec3 P)
     vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);
     vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);
     float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x); 
-    return 2.2 * n_xyz;
+    return  n_xyz + 0.5;
 }
 
 
@@ -104,20 +106,74 @@ float cnoise(vec3 P)
 
 
 
+float circleSDF(vec2 st, vec2 center){
+    return length(st-center);// (>0)
+}
+
+float generateHeight(vec3 pos){
+    vec2 planeCenter = vec2(0.,0.);
+    float planeRadius = 3.5;
+    float scale = smoothstep(planeRadius-2.,planeRadius+2.,circleSDF(pos.xy,planeCenter));
+    return 8.7 * cnoise(pos.yzx*0.2+0.5*uTime) * scale;
+}
+
+float getDist(vec3 pos) { //get distance to the plane from the a input position
+    float distToGround = pos.z +  generateHeight(pos);
+    return distToGround;
+}
+
+
+vec3 estimateNormal(vec3 p) {
+    float SMALL_NUMMBER = 0.001;
+    vec3 n = vec3(
+        getDist(vec3(p.x + SMALL_NUMMBER, p.yz)) -
+        getDist(vec3(p.x - SMALL_NUMMBER, p.yz)),
+        getDist(vec3(p.x, p.y + SMALL_NUMMBER, p.z)) -
+        getDist(vec3(p.x, p.y - SMALL_NUMMBER, p.z)),
+        getDist(vec3(p.xy, p.z + SMALL_NUMMBER)) -
+        getDist(vec3(p.xy, p.z - SMALL_NUMMBER))
+    );
+    return normalize(n);
+}
 
 
 void main() {
     vec3 pos = position;
-    vNormal = normal;
+    vNormal = estimateNormal(pos);
+
+
+    mat4 LM = modelMatrix;
+          LM[2][3] = 0.0;
+          LM[3][0] = 0.0;
+          LM[3][1] = 0.0;
+          LM[3][2] = 0.0;
+
+    vec4 GN = LM * vec4(normal.xyz, 1.0);
+
+    vNN = normalize(GN.xyz);
+    vEye = normalize(GN.xyz-cameraPosition);
    
 
 
     vec4 mvPosition = modelViewMatrix * vec4( pos, 1.0 );
+
+   
+    vec2 planeCenter = vec2(0.,0.);
+    float planeRadius = 3.5;
+    float scale = smoothstep(planeRadius-0.5,planeRadius+0.5,circleSDF(pos.xy,planeCenter));
+
+
     gl_Position = projectionMatrix * mvPosition;
+       gl_Position.y += generateHeight(pos);
 
-    gl_Position.y += 5.7*cnoise(pos.yzx*0.5+0.5*uTime);
+   
 
-    gl_PointSize = 8.0 / -mvPosition.z;
+
+ 
+
+   // float generateHeight=  15.9 * noise(0.15 * vec2(pos.x, pos.y))* scaleY;
+
+   
     vColor = vec3(1.); 
 }
 
