@@ -11,7 +11,6 @@ varying vec3 vEye;
 attribute vec3 aRandom;
 
 
-
 /**
 noise
 */
@@ -103,9 +102,6 @@ float cnoise(vec3 P)
 
 
 
-
-
-
 float circleSDF(vec2 st, vec2 center){
     return length(st-center);// (>0)
 }
@@ -121,7 +117,6 @@ float getDist(vec3 pos) { //get distance to the plane from the a input position
     float distToGround = pos.z +  generateHeight(pos);
     return distToGround;
 }
-
 
 vec3 estimateNormal(vec3 p) {
     float SMALL_NUMMBER = 0.001;
