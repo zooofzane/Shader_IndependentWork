@@ -1,4 +1,4 @@
-<<<<<<< Updated upstream
+
 
 
 
@@ -12,10 +12,10 @@
 // }
 
 
-<<<<<<< HEAD
+
      gl_FragColor = vec4(color,1.0);
     // gl_FragColor = vec4(diff+0.8);
-=======
+
 void main() {
       float strength = distance(gl_PointCoord, vec2(0.5));
       strength = 1.0 - step(0.5, strength);
@@ -23,8 +23,8 @@ void main() {
 
       gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
       gl_FragColor = vec4(color, 1.0);
->>>>>>> Stashed changes
-=======
+
+
 void main() {
      float strength = distance(gl_PointCoord, vec2(0.5));
     strength = 1.0 - step(0.5,strength);
@@ -32,5 +32,5 @@ void main() {
 
  gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
  gl_FragColor = vec4(color,1.0);
->>>>>>> parent of 34c394c (        update vertex shader)
+
 }

@@ -1,7 +1,19 @@
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
-import vertex from './shader/vertexShader.glsl'
-import fragment from './shader/fragmentShader.glsl'
+import {
+    OrbitControls
+} from 'three/examples/jsm/controls/OrbitControls'
+import {
+    TextGeometry
+} from 'three/examples/jsm/geometries/TextGeometry.js'
+import {
+    FontLoader
+} from 'three/examples/jsm/loaders/FontLoader.js'
+
+// var typeface = require('three.regular.helvetiker');
+// THREE.typeface_js.loadFace(typeface);
+
+// import vertex from './shader/vertexShader.glsl'
+// import fragment from './shader/fragmentShader.glsl'
 // import Text from './text.js'
 
 /* -------------------------------------------------------------------------- */
@@ -14,7 +26,9 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
+// console.log(Text);
 
+// console.log(111);
 
 /* -------------------------------------------------------------------------- */
 /*                               scene & camera                               */
@@ -31,15 +45,45 @@ camera.position.y = 1;
 
 
 /* -------------------------------------------------------------------------- */
+/*                                    text                                    */
+/* -------------------------------------------------------------------------- */
+
+let fontLoader = new FontLoader();
+// fontLoader.load("./DINPro-Regular_Regular.typeface.json",function(tex){
+    // fontLoader.load("three/examples/fonts/helvetiker_regular.typeface.json",function(tex){
+    fontLoader.load("https://threejs.org//examples/fonts/helvetiker_regular.typeface.json",function(tex){
+    // fontLoader.load("three.regular.helvetiker/index.js",function(tex){
+// fontLoader.load("./helvetiker_regular.typeface.json", function (tex) {
+    let textGeo = new TextGeometry('Test', {
+        size: .1,
+        height: .1,
+        curveSegments: 6,
+        font: "helvetiker",
+        font: tex,
+        // font: "DINPro-Regular",
+        // style: "normal"
+    });
+    let color = new THREE.Color();
+    color.setRGB(255, 250, 250);
+    let textMaterial = new THREE.MeshBasicMaterial({
+        color: color
+    });
+    let text = new THREE.Mesh(textGeo, textMaterial);
+    scene.add(text);
+});
+
+
+
+/* -------------------------------------------------------------------------- */
 /*                                    light                                   */
 /* -------------------------------------------------------------------------- */
-const dirLight = new THREE.DirectionalLight( 0xffffff, 0.125 );
-dirLight.position.set( 0, 0, 1 ).normalize();
-scene.add( dirLight );
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.125);
+dirLight.position.set(0, 0, 1).normalize();
+scene.add(dirLight);
 
-const pointLight = new THREE.PointLight( 0xffffff, 1.5 );
-pointLight.position.set( 0, 100, 90 );
-scene.add( pointLight );
+const pointLight = new THREE.PointLight(0xffffff, 1.5);
+pointLight.position.set(0, 100, 90);
+scene.add(pointLight);
 
 
 
@@ -47,21 +91,25 @@ scene.add( pointLight );
 /*                                    mesh                                    */
 /* -------------------------------------------------------------------------- */
 
-const planeGeometry = new THREE.PlaneGeometry(10, 10, 1500,1500);
-const planeMaterial = new THREE.ShaderMaterial({
-    depthWrite: false,
-    depthTest: false,
-    side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending,
-    vertexColors: true,
-    vertexShader: vertex,
-    fragmentShader: fragment,
-    uniforms: {
-        uTime: { value: 0 },
-        uNoise: { value: 0 },
-        // wPlane: {},
-        // hPlane: {},
-    }
+const planeGeometry = new THREE.PlaneGeometry(10, 10, 1500, 1500);
+// const planeMaterial = new THREE.ShaderMaterial({
+//     depthWrite: false,
+//     depthTest: false,
+//     side: THREE.DoubleSide,
+//     blending: THREE.AdditiveBlending,
+//     vertexColors: true,
+//     vertexShader: vertex,
+//     fragmentShader: fragment,
+//     uniforms: {
+//         uTime: { value: 0 },
+//         uNoise: { value: 0 },
+//         // wPlane: {},
+//         // hPlane: {},
+//     }
+// });
+const planeMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffff00,
+    side: THREE.DoubleSide
 });
 const plane = new THREE.Mesh(planeGeometry, planeMaterial);
 plane.rotation.x = Math.PI / 2;
@@ -88,12 +136,12 @@ const axesHelper = new THREE.AxesHelper(5);
 const blocker = document.getElementById('blocker');
 blocker.style.display = 'none';
 
-controls.addEventListener('start', function() {
+controls.addEventListener('start', function () {
 
     blocker.style.display = '';
 
 });
-controls.addEventListener('end', function() {
+controls.addEventListener('end', function () {
 
     blocker.style.display = 'none';
 
@@ -114,7 +162,7 @@ window.addEventListener('resize', onWindowResize, false);
 /* -------------------------------------------------------------------------- */
 /*                                    loop                                    */
 /* -------------------------------------------------------------------------- */
-const animate = function() {
+const animate = function () {
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
 };

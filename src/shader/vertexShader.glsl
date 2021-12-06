@@ -3,14 +3,10 @@ uniform float uSize;
 uniform float uNoise;
 uniform float ustate;
 
-<<<<<<< Updated upstream
+
 varying vec3 vColor;
-<<<<<<< HEAD
+
 varying vec3 vNormal;
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> parent of 34c394c (        update vertex shader)
 
 attribute vec3 aRandom;
 
@@ -107,12 +103,10 @@ float cnoise(vec3 P) {
 
 
 void main() {
-<<<<<<< HEAD
-<<<<<<< Updated upstream
     vec3 pos = position;
     vNormal = normal;
    
-=======
+
 
 vec3 pos = position;
 pos.x += sin(uTime * aRandom.x) * 0.01;
@@ -127,7 +121,7 @@ float v1 = .3*(.5-length(pos.zx)) + uTime * u;
     pos.x -= cnoise(vec3( v1*.5, v2*.5, v3)) * uNoise*.5;
     pos.z += cnoise(vec3( v1*.5, v2*.5, v3)) * uNoise*.5;
     }
->>>>>>> parent of 34c394c (        update vertex shader)
+
 
 
     vec4 mvPosition = modelViewMatrix * vec4( pos, 1.0 );
@@ -137,13 +131,12 @@ float v1 = .3*(.5-length(pos.zx)) + uTime * u;
 
     vColor = vec3(1.); 
 }
-=======
+
 
     vec4 modelPosition = modelMatrix * vec4(position, 1.0);
     modelPosition.zy *= 5.2 + cnoise(vec3(1., length(modelPosition.zy) + uTime * uFrequency, length(modelPosition.zy) + uTime * uFrequency)) * 1.11;
     vec4 viewPosition = viewMatrix * modelPosition;
     vec4 projectionPosition = projectionMatrix * viewPosition;
->>>>>>> Stashed changes
 
     gl_Position = projectionPosition;
 
