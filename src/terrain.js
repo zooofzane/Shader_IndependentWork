@@ -43,7 +43,7 @@ const planeMaterial = new THREE.ShaderMaterial({
     depthWrite: false,
     depthTest: false,
     side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending,
+  //  blending: THREE.AdditiveBlending,
     vertexColors: true,
     vertexShader: vertex,
     fragmentShader: fragment,
@@ -54,6 +54,7 @@ const planeMaterial = new THREE.ShaderMaterial({
         // hPlane: {},
     }
 });
+console.log(planeGeometry);
 const plane = new THREE.Mesh(planeGeometry, planeMaterial);
 plane.rotation.x = Math.PI / 2;
 scene.add(plane);
