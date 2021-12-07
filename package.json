@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "gsap": "^3.6.0",
+    "dat.gui": "^0.7.7",
     "model.js": "0.0.1",
     "three": "^0.135.0",
     "three.regular.helvetiker": "^1.0.0"

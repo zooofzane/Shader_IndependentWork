@@ -1,18 +1,16 @@
 import * as THREE from 'three'
-import {
-    OrbitControls
-} from 'three/examples/jsm/controls/OrbitControls'
-import {
-    TextGeometry
-} from 'three/examples/jsm/geometries/TextGeometry.js'
-import {
-    FontLoader
-} from 'three/examples/jsm/loaders/FontLoader.js'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
 import vertex from './shader/vertexShader.glsl'
 import fragment from './shader/fragmentShader.glsl'
+<<<<<<< Updated upstream
 import {
     GUI
 } from 'three/examples/jsm/libs/lil-gui.module.min.js';
+=======
+import * as dat from 'dat.gui'
+>>>>>>> Stashed changes
 
 // var typeface = require('three.regular.helvetiker');
 // THREE.typeface_js.loadFace(typeface);
@@ -46,6 +44,16 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.position.z = 5;
 camera.position.y = 1;
+
+
+/* -------------------------------------------------------------------------- */
+/*                                     gui                                    */
+/* -------------------------------------------------------------------------- */
+const gui = new dat.GUI();
+gui.add(material.uniforms.uFrequency, 'count').min(100).max(1000000).step(100).onFinishChange(generateGalaxy)
+
+
+
 
 
 /* -------------------------------------------------------------------------- */
