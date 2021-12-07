@@ -4,13 +4,13 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
 import vertex from './shader/vertexShader.glsl'
 import fragment from './shader/fragmentShader.glsl'
-<<<<<<< Updated upstream
+
 import {
     GUI
 } from 'three/examples/jsm/libs/lil-gui.module.min.js';
-=======
+
 import * as dat from 'dat.gui'
->>>>>>> Stashed changes
+
 
 // var typeface = require('three.regular.helvetiker');
 // THREE.typeface_js.loadFace(typeface);
