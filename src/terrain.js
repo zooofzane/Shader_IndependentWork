@@ -4,11 +4,7 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
 import vertex from './shader/vertexShader.glsl'
 import fragment from './shader/fragmentShader.glsl'
-
-import {
-    GUI
-} from 'three/examples/jsm/libs/lil-gui.module.min.js';
-
+import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min.js';
 import * as dat from 'dat.gui'
 
 
@@ -49,8 +45,8 @@ camera.position.y = 1;
 /* -------------------------------------------------------------------------- */
 /*                                     gui                                    */
 /* -------------------------------------------------------------------------- */
-const gui = new dat.GUI();
-gui.add(material.uniforms.uFrequency, 'count').min(100).max(1000000).step(100).onFinishChange(generateGalaxy)
+// const gui = new dat.GUI();
+// gui.add(material.uniforms.uFrequency, 'count').min(100).max(1000000).step(100).onFinishChange(generateGalaxy)
 
 
 
@@ -204,7 +200,7 @@ let sunMaterial = new THREE.ShaderMaterial({
 const sun = new THREE.Mesh(sunGeometry, sunMaterial);
 sun.position.z = -90;
 scene.add(sun);
-0
+
 
 
 
