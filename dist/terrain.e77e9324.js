@@ -38018,9 +38018,588 @@ function createPath(char, scale, offsetX, offsetY, data) {
 
 Font.prototype.isFont = true;
 },{"three":"../node_modules/three/build/three.module.js"}],"shader/vertexShader.glsl":[function(require,module,exports) {
-module.exports = "#define GLSLIFY 1\nuniform float uTime;\nuniform float uSize;\nuniform float uNoise;\nuniform float ustate;\n\nvarying vec3 vColor;\nvarying vec3 vNormal;\nvarying vec3 vNN; \nvarying vec3 vEye;\n\nattribute vec3 aRandom;\n\n/**\nnoise\n*/\n// Classic Perlin 3D Noise \n// by Stefan Gustavson\n//\nvec4 permute(vec4 x)\n{\n    return mod(((x*34.0)+1.0)*x, 289.0);\n}\nvec4 taylorInvSqrt(vec4 r)\n{\n    return 1.79284291400159 - 0.85373472095314 * r;\n}\nvec3 fade(vec3 t)\n{\n    return t*t*t*(t*(t*6.0-15.0)+10.0);\n}\n\nfloat cnoise(vec3 P)\n{\n    vec3 Pi0 = floor(P); // Integer part for indexing\n    vec3 Pi1 = Pi0 + vec3(1.0); // Integer part + 1\n    Pi0 = mod(Pi0, 289.0);\n    Pi1 = mod(Pi1, 289.0);\n    vec3 Pf0 = fract(P); // Fractional part for interpolation\n    vec3 Pf1 = Pf0 - vec3(1.0); // Fractional part - 1.0\n    vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);\n    vec4 iy = vec4(Pi0.yy, Pi1.yy);\n    vec4 iz0 = Pi0.zzzz;\n    vec4 iz1 = Pi1.zzzz;\n\n    vec4 ixy = permute(permute(ix) + iy);\n    vec4 ixy0 = permute(ixy + iz0);\n    vec4 ixy1 = permute(ixy + iz1);\n\n    vec4 gx0 = ixy0 / 7.0;\n    vec4 gy0 = fract(floor(gx0) / 7.0) - 0.5;\n    gx0 = fract(gx0);\n    vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);\n    vec4 sz0 = step(gz0, vec4(0.0));\n    gx0 -= sz0 * (step(0.0, gx0) - 0.5);\n    gy0 -= sz0 * (step(0.0, gy0) - 0.5);\n\n    vec4 gx1 = ixy1 / 7.0;\n    vec4 gy1 = fract(floor(gx1) / 7.0) - 0.5;\n    gx1 = fract(gx1);\n    vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);\n    vec4 sz1 = step(gz1, vec4(0.0));\n    gx1 -= sz1 * (step(0.0, gx1) - 0.5);\n    gy1 -= sz1 * (step(0.0, gy1) - 0.5);\n\n    vec3 g000 = vec3(gx0.x,gy0.x,gz0.x);\n    vec3 g100 = vec3(gx0.y,gy0.y,gz0.y);\n    vec3 g010 = vec3(gx0.z,gy0.z,gz0.z);\n    vec3 g110 = vec3(gx0.w,gy0.w,gz0.w);\n    vec3 g001 = vec3(gx1.x,gy1.x,gz1.x);\n    vec3 g101 = vec3(gx1.y,gy1.y,gz1.y);\n    vec3 g011 = vec3(gx1.z,gy1.z,gz1.z);\n    vec3 g111 = vec3(gx1.w,gy1.w,gz1.w);\n\n    vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));\n    g000 *= norm0.x;\n    g010 *= norm0.y;\n    g100 *= norm0.z;\n    g110 *= norm0.w;\n    vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));\n    g001 *= norm1.x;\n    g011 *= norm1.y;\n    g101 *= norm1.z;\n    g111 *= norm1.w;\n\n    float n000 = dot(g000, Pf0);\n    float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));\n    float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));\n    float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));\n    float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));\n    float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));\n    float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));\n    float n111 = dot(g111, Pf1);\n\n    vec3 fade_xyz = fade(Pf0);\n    vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);\n    vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);\n    float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x); \n    return  n_xyz + 0.5;\n}\n\nfloat circleSDF(vec2 st, vec2 center){\n    return length(st-center);// (>0)\n}\n\nfloat generateHeight(vec3 pos){\n    vec2 planeCenter = vec2(0.,0.);\n    float planeRadius = 3.5;\n    float scale = smoothstep(planeRadius-2.,planeRadius+2.,circleSDF(pos.xy,planeCenter));\n    return 8.7 * cnoise(pos.yzx*0.2+0.5*uTime) * scale;\n}\n\nfloat getDist(vec3 pos) { //get distance to the plane from the a input position\n    float distToGround = pos.z +  generateHeight(pos);\n    return distToGround;\n}\n\nvec3 estimateNormal(vec3 p) {\n    float SMALL_NUMMBER = 0.001;\n    vec3 n = vec3(\n        getDist(vec3(p.x + SMALL_NUMMBER, p.yz)) -\n        getDist(vec3(p.x - SMALL_NUMMBER, p.yz)),\n        getDist(vec3(p.x, p.y + SMALL_NUMMBER, p.z)) -\n        getDist(vec3(p.x, p.y - SMALL_NUMMBER, p.z)),\n        getDist(vec3(p.xy, p.z + SMALL_NUMMBER)) -\n        getDist(vec3(p.xy, p.z - SMALL_NUMMBER))\n    );\n    return normalize(n);\n}\n\nvoid main() {\n    vec3 pos = position;\n    vNormal = estimateNormal(pos);\n\n    mat4 LM = modelMatrix;\n          LM[2][3] = 0.0;\n          LM[3][0] = 0.0;\n          LM[3][1] = 0.0;\n          LM[3][2] = 0.0;\n\n    vec4 GN = LM * vec4(normal.xyz, 1.0);\n\n    vNN = normalize(GN.xyz);\n    vEye = normalize(GN.xyz-cameraPosition);\n   \n\n    vec4 mvPosition = modelViewMatrix * vec4( pos, 1.0 );\n\n   \n    vec2 planeCenter = vec2(0.,0.);\n    float planeRadius = 3.5;\n    float scale = smoothstep(planeRadius-0.5,planeRadius+0.5,circleSDF(pos.xy,planeCenter));\n\n    gl_Position = projectionMatrix * mvPosition;\n       gl_Position.y += generateHeight(pos);\n\n   \n\n \n\n   // float generateHeight=  15.9 * noise(0.15 * vec2(pos.x, pos.y))* scaleY;\n\n   \n    vColor = vec3(1.); \n}\n\n";
+module.exports = "#define GLSLIFY 1\nuniform float uTime;\nuniform float uSize;\nuniform float uNoise;\nuniform float ustate;\nuniform float uHeight;\n\nvarying vec3 vColor;\nvarying vec3 vNormal;\nvarying vec4 vPosition;\nvarying vec3 vNN; \nvarying vec3 vEye;\nvarying vec2 vUv;\nvarying float vNoiseParam;\n\nattribute vec3 aRandom;\n\n/**\nnoise\n*/\n// Classic Perlin 3D Noise \n// by Stefan Gustavson\n//\nvec4 permute(vec4 x)\n{\n    return mod(((x*34.0)+1.0)*x, 289.0);\n}\nvec4 taylorInvSqrt(vec4 r)\n{\n    return 1.79284291400159 - 0.85373472095314 * r;\n}\nvec3 fade(vec3 t)\n{\n    return t*t*t*(t*(t*6.0-15.0)+10.0);\n}\n\nfloat cnoise(vec3 P)\n{\n    vec3 Pi0 = floor(P); // Integer part for indexing\n    vec3 Pi1 = Pi0 + vec3(1.0); // Integer part + 1\n    Pi0 = mod(Pi0, 289.0);\n    Pi1 = mod(Pi1, 289.0);\n    vec3 Pf0 = fract(P); // Fractional part for interpolation\n    vec3 Pf1 = Pf0 - vec3(1.0); // Fractional part - 1.0\n    vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);\n    vec4 iy = vec4(Pi0.yy, Pi1.yy);\n    vec4 iz0 = Pi0.zzzz;\n    vec4 iz1 = Pi1.zzzz;\n\n    vec4 ixy = permute(permute(ix) + iy);\n    vec4 ixy0 = permute(ixy + iz0);\n    vec4 ixy1 = permute(ixy + iz1);\n\n    vec4 gx0 = ixy0 / 7.0;\n    vec4 gy0 = fract(floor(gx0) / 7.0) - 0.5;\n    gx0 = fract(gx0);\n    vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);\n    vec4 sz0 = step(gz0, vec4(0.0));\n    gx0 -= sz0 * (step(0.0, gx0) - 0.5);\n    gy0 -= sz0 * (step(0.0, gy0) - 0.5);\n\n    vec4 gx1 = ixy1 / 7.0;\n    vec4 gy1 = fract(floor(gx1) / 7.0) - 0.5;\n    gx1 = fract(gx1);\n    vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);\n    vec4 sz1 = step(gz1, vec4(0.0));\n    gx1 -= sz1 * (step(0.0, gx1) - 0.5);\n    gy1 -= sz1 * (step(0.0, gy1) - 0.5);\n\n    vec3 g000 = vec3(gx0.x,gy0.x,gz0.x);\n    vec3 g100 = vec3(gx0.y,gy0.y,gz0.y);\n    vec3 g010 = vec3(gx0.z,gy0.z,gz0.z);\n    vec3 g110 = vec3(gx0.w,gy0.w,gz0.w);\n    vec3 g001 = vec3(gx1.x,gy1.x,gz1.x);\n    vec3 g101 = vec3(gx1.y,gy1.y,gz1.y);\n    vec3 g011 = vec3(gx1.z,gy1.z,gz1.z);\n    vec3 g111 = vec3(gx1.w,gy1.w,gz1.w);\n\n    vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));\n    g000 *= norm0.x;\n    g010 *= norm0.y;\n    g100 *= norm0.z;\n    g110 *= norm0.w;\n    vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));\n    g001 *= norm1.x;\n    g011 *= norm1.y;\n    g101 *= norm1.z;\n    g111 *= norm1.w;\n\n    float n000 = dot(g000, Pf0);\n    float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));\n    float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));\n    float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));\n    float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));\n    float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));\n    float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));\n    float n111 = dot(g111, Pf1);\n\n    vec3 fade_xyz = fade(Pf0);\n    vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);\n    vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);\n    float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x); \n    return  n_xyz+0.3;\n}\n\nfloat circleSDF(vec2 st, vec2 center){\n    return length(st-center);// (>0)\n}\n\nfloat curveSDF(vec2 st, float center){\n  return abs(st.x-center+sin(st.y * 0.7)*1.);\n}\n\nfloat generateHeight(vec3 pos){\n    float hill = 0.;\n    //create a flat path\n    float scale = 0.;\n    float width = 4.5;\n    scale = smoothstep(width/2.-1.2,width/2.+1.2,curveSDF(pos.xy,0.0));\n    \n    //make the hill noise from front to back\n    float a = step(pos.x,0.)*2.-1.;\n    a*=0.4;\n\n   vec3 p = vec3(pos.x*0.4+uTime*a,pos.y*0.3+uTime*0.4,pos.z);\n   hill += uHeight * cnoise(p);\n   hill += 1.* cnoise(vec3(pos.x*0.2+uTime*a,pos.y*0.3+0.5,pos.z));\n   hill += 1.* cnoise(vec3(pos.x*0.6+uTime*a,pos.y*0.1+0.5,pos.z));\n //  vec3 p2 = vec3(1.,pos.y*0.2+1.,pos.z)*0.7;\n //  hill += 7.7 * cnoise(p2);\n   hill *= scale *0.9;\n   hill += 0.5* cnoise(pos*0.2);\n   return hill;\n}\n\nfloat getDist(vec3 pos) { //get distance to the plane from the a input position\n    float distToGround = pos.z +  generateHeight(pos);\n    return distToGround;\n}\n\nvec3 estimateNormal(vec3 p) {\n    float SMALL_NUMMBER = 0.001;\n    vec3 n = vec3(\n        getDist(vec3(p.x + SMALL_NUMMBER, p.yz)) -\n        getDist(vec3(p.x - SMALL_NUMMBER, p.yz)),\n        getDist(vec3(p.x, p.y + SMALL_NUMMBER, p.z)) -\n        getDist(vec3(p.x, p.y - SMALL_NUMMBER, p.z)),\n        getDist(vec3(p.xy, p.z + SMALL_NUMMBER)) -\n        getDist(vec3(p.xy, p.z - SMALL_NUMMBER))\n    );\n    return normalize(n);\n}\n\nvoid main() {\n    vNormal = estimateNormal(position);\n    vUv = uv;\n    mat4 LM = modelMatrix;\n          LM[2][3] = 0.0;\n          LM[3][0] = 0.0;\n          LM[3][1] = 0.0;\n          LM[3][2] = 0.0;\n\n    vec4 GN = LM * vec4(normal.xyz, 1.0);\n\n    vNN = normalize(GN.xyz);\n    vEye = normalize(GN.xyz-cameraPosition);\n\n    vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );\n    mvPosition.y += generateHeight(position);\n    mvPosition.y -=1.;\n\n    vPosition = mvPosition;\n    vNoiseParam = generateHeight(position);\n\n    gl_Position = projectionMatrix * mvPosition;\n    \n   \n\n   \n\n   \n\n}\n\n";
 },{}],"shader/fragmentShader.glsl":[function(require,module,exports) {
-module.exports = "#define GLSLIFY 1\n\n // varying vec3 vPosition;\nvarying vec3 vNormal;\n   varying vec3 vNN;\n   varying vec3 vEye;\n\nvoid main() {\n//      float strength = distance(gl_PointCoord, vec2(0.5));\n//      strength = 1.0 - step(0.5,strength);\n vec3 fresnelColor = vec3(1.0, 0.4627, 0.9098);\n\n     float diff = dot(vec3(2.,4.,0.),vNormal)*0.1;\n     vec3 color =vec3(0.5529, 0.5529, 0.5529); \n      color += diff;\n     gl_FragColor = vec4(color,1.0);\n\n  //  gl_FragColor.rgba +=  ( 1.0 - -min(dot(vEye, normalize(vNN) ), 0.0) ) * vec4(fresnelColor,0.9)*0.9;\n\n    // gl_FragColor = vec4(diff);\n}";
+module.exports = "#define GLSLIFY 1\n varying vec4 vPosition;\nvarying vec3 vNormal;\nvarying float vNoiseParam;\nvarying vec2 vUv;\nvarying vec3 vNN; \nvarying vec3 vEye;\n\nuniform vec3 fogColor;\nuniform float fogNear;\nuniform float fogFar;\nuniform float uHeight;\n\nvec3 cosPalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {\n    return a + b * cos(6.28318 * (c * t + d));\n}\n\nvoid main() {\n   vec3 color = vec3(0.5); \n   vec3 fresnelColor = vec3(1.0, 0.4627, 0.9098);\n\n   /* -------------------------------------------------------------------------- */\n/*                                    texture                                 */\n/* -------------------------------------------------------------------------- */\n   //color related to height;\n  color = vec3(vNoiseParam*0.5)+0.4;\n\n/* -------------------------------------------------------------------------- */\n/*                                    color patthern                                   */\n/* -------------------------------------------------------------------------- */\n   //pink and yellow\n   float diff = dot(vec3(2., 4., 1.), vNormal) * 0.1;\n   vec3 brightness = vec3(1.0, 0.6275, 0.2784);\n   vec3 contrast = vec3(0.1451, 0.1451, 0.1451);\n   vec3 osc = vec3(6.2);\n   vec3 phase = vec3(0.102, 0.4157, 1.0);\n  // color *= cosPalette(vUv.y * 0.3, brightness, contrast, osc, phase);\n  // color += diff*0.4;\n\n   gl_FragColor = vec4(color, 1.);\n  \n   //fresnelColor\n   // gl_FragColor = vec4(gl_FragColor.rgb, 0.3);\n   // gl_FragColor.rgba +=  ( 1.0 - -min(dot(vEye, normalize(vNN) ), 0.0) ) * vec4(fresnelColor,0.0)*0.9;\n\n   //add fog\n   #ifdef USE_FOG\n      #ifdef USE_LOGDEPTHBUF_EXT\n         float depth = gl_FragDepthEXT / gl_FragCoord.w;\n      #else\n         float depth = gl_FragCoord.z / gl_FragCoord.w;\n      #endif\n      float fogFactor = smoothstep( fogNear, fogFar, depth );\n      gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );\n   #endif\n\n   // gl_FragColor = vec4(diff);\n}";
+},{}],"../node_modules/three/examples/jsm/libs/lil-gui.module.min.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.StringController = exports.OptionController = exports.NumberController = exports.GUI = exports.FunctionController = exports.Controller = exports.ColorController = exports.BooleanController = exports.default = void 0;
+
+/**
+ * lil-gui
+ * https://lil-gui.georgealways.com
+ * @version 0.11.0
+ * @author George Michael Brower
+ * @license MIT
+ */
+class t {
+  constructor(e, i, s, r, n = "div") {
+    this.parent = e, this.object = i, this.property = s, this._disabled = !1, this.initialValue = this.getValue(), this.domElement = document.createElement("div"), this.domElement.classList.add("controller"), this.domElement.classList.add(r), this.$name = document.createElement("div"), this.$name.classList.add("name"), t.nextNameID = t.nextNameID || 0, this.$name.id = "lil-gui-name-" + ++t.nextNameID, this.$widget = document.createElement(n), this.$widget.classList.add("widget"), this.$disable = this.$widget, this.domElement.appendChild(this.$name), this.domElement.appendChild(this.$widget), this.parent.children.push(this), this.parent.controllers.push(this), this.parent.$children.appendChild(this.domElement), this._listenCallback = this._listenCallback.bind(this), this.name(s);
+  }
+
+  name(t) {
+    return this._name = t, this.$name.innerHTML = t, this;
+  }
+
+  onChange(t) {
+    return this._onChange = t, this;
+  }
+
+  _callOnChange() {
+    this.parent._callOnChange(this), void 0 !== this._onChange && this._onChange.call(this, this.getValue());
+  }
+
+  onFinishChange(t) {
+    return this.onChange(t);
+  }
+
+  reset() {
+    return this.setValue(this.initialValue), this;
+  }
+
+  enable(t = !0) {
+    return this.disable(!t);
+  }
+
+  disable(t = !0) {
+    return t === this._disabled || (this._disabled = t, this.domElement.classList.toggle("disabled", t), t ? this.$disable.setAttribute("disabled", "disabled") : this.$disable.removeAttribute("disabled")), this;
+  }
+
+  options(t) {
+    const e = this.parent.add(this.object, this.property, t);
+    return e.name(this._name), this.destroy(), e;
+  }
+
+  min(t) {
+    return this;
+  }
+
+  max(t) {
+    return this;
+  }
+
+  step(t) {
+    return this;
+  }
+
+  listen(t = !0) {
+    return this._listening = t, void 0 !== this._listenCallbackID && (cancelAnimationFrame(this._listenCallbackID), this._listenCallbackID = void 0), this._listening && this._listenCallback(), this;
+  }
+
+  _listenCallback() {
+    this._listenCallbackID = requestAnimationFrame(this._listenCallback);
+    const t = this.getValue();
+    t === this._listenValuePrev && Object(t) !== t || this.updateDisplay(), this._listenValuePrev = t;
+  }
+
+  getValue() {
+    return this.object[this.property];
+  }
+
+  setValue(t) {
+    return this.object[this.property] = t, this._callOnChange(), this.updateDisplay(), this;
+  }
+
+  updateDisplay() {
+    return this;
+  }
+
+  load(t) {
+    this.setValue(t);
+  }
+
+  save() {
+    return this.getValue();
+  }
+
+  destroy() {
+    this.parent.children.splice(this.parent.children.indexOf(this), 1), this.parent.controllers.splice(this.parent.controllers.indexOf(this), 1), this.parent.$children.removeChild(this.domElement);
+  }
+
+}
+
+exports.Controller = t;
+
+class e extends t {
+  constructor(t, e, i) {
+    super(t, e, i, "boolean", "label"), this.$input = document.createElement("input"), this.$input.setAttribute("type", "checkbox"), this.$widget.appendChild(this.$input), this.$input.addEventListener("change", () => {
+      this.setValue(this.$input.checked);
+    }), this.$disable = this.$input, this.updateDisplay();
+  }
+
+  updateDisplay() {
+    return this.$input.checked = this.getValue(), this;
+  }
+
+}
+
+exports.BooleanController = e;
+
+function i(t) {
+  let e, i;
+  return (e = t.match(/(#|0x)?([a-f0-9]{6})/i)) ? i = e[2] : (e = t.match(/rgb\(\s*(\d*)\s*,\s*(\d*)\s*,\s*(\d*)\s*\)/)) ? i = parseInt(e[1]).toString(16).padStart(2, 0) + parseInt(e[2]).toString(16).padStart(2, 0) + parseInt(e[3]).toString(16).padStart(2, 0) : (e = t.match(/^#?([a-f0-9])([a-f0-9])([a-f0-9])$/i)) && (i = e[1] + e[1] + e[2] + e[2] + e[3] + e[3]), !!i && "#" + i;
+}
+
+const s = {
+  isPrimitive: !0,
+  match: t => "string" == typeof t,
+  fromHexString: i,
+  toHexString: i
+},
+      r = {
+  isPrimitive: !0,
+  match: t => "number" == typeof t,
+  fromHexString: t => parseInt(t.substring(1), 16),
+  toHexString: t => "#" + t.toString(16).padStart(6, 0)
+},
+      n = {
+  isPrimitive: !1,
+  match: Array.isArray,
+
+  fromHexString(t, e, i = 1) {
+    const s = r.fromHexString(t);
+    e[0] = (s >> 16 & 255) / 255 * i, e[1] = (s >> 8 & 255) / 255 * i, e[2] = (255 & s) / 255 * i;
+  },
+
+  toHexString: ([t, e, i], s = 1) => r.toHexString(t * (s = 255 / s) << 16 ^ e * s << 8 ^ i * s << 0)
+},
+      l = {
+  isPrimitive: !1,
+  match: t => Object(t) === t,
+
+  fromHexString(t, e, i = 1) {
+    const s = r.fromHexString(t);
+    e.r = (s >> 16 & 255) / 255 * i, e.g = (s >> 8 & 255) / 255 * i, e.b = (255 & s) / 255 * i;
+  },
+
+  toHexString: ({
+    r: t,
+    g: e,
+    b: i
+  }, s = 1) => r.toHexString(t * (s = 255 / s) << 16 ^ e * s << 8 ^ i * s << 0)
+},
+      o = [s, r, n, l];
+
+class a extends t {
+  constructor(t, e, s, r) {
+    var n;
+    super(t, e, s, "color"), this.$input = document.createElement("input"), this.$input.setAttribute("type", "color"), this.$input.setAttribute("tabindex", -1), this.$input.setAttribute("aria-labelledby", this.$name.id), this.$text = document.createElement("input"), this.$text.setAttribute("type", "text"), this.$text.setAttribute("spellcheck", "false"), this.$text.setAttribute("aria-labelledby", this.$name.id), this.$display = document.createElement("div"), this.$display.classList.add("display"), this.$display.appendChild(this.$input), this.$widget.appendChild(this.$display), this.$widget.appendChild(this.$text), this._format = (n = this.initialValue, o.find(t => t.match(n))), this._rgbScale = r, this._initialValueHexString = this.save(), this._textFocused = !1;
+
+    const l = () => {
+      this._setValueFromHexString(this.$input.value);
+    };
+
+    this.$input.addEventListener("change", l), this.$input.addEventListener("input", l), this.$input.addEventListener("focus", () => {
+      this.$display.classList.add("focus");
+    }), this.$input.addEventListener("blur", () => {
+      this.$display.classList.remove("focus");
+    }), this.$text.addEventListener("input", () => {
+      const t = i(this.$text.value);
+      t && this._setValueFromHexString(t);
+    }), this.$text.addEventListener("focus", () => {
+      this._textFocused = !0, this.$text.select();
+    }), this.$text.addEventListener("blur", () => {
+      this._textFocused = !1, this.updateDisplay();
+    }), this.$disable = this.$text, this.updateDisplay();
+  }
+
+  reset() {
+    return this._setValueFromHexString(this._initialValueHexString), this;
+  }
+
+  _setValueFromHexString(t) {
+    if (this._format.isPrimitive) {
+      const e = this._format.fromHexString(t);
+
+      this.setValue(e);
+    } else this._format.fromHexString(t, this.getValue(), this._rgbScale), this._callOnChange(), this.updateDisplay();
+  }
+
+  save() {
+    return this._format.toHexString(this.getValue(), this._rgbScale);
+  }
+
+  load(t) {
+    this._setValueFromHexString(t);
+  }
+
+  updateDisplay() {
+    return this.$input.value = this._format.toHexString(this.getValue(), this._rgbScale), this._textFocused || (this.$text.value = this.$input.value.substring(1)), this.$display.style.backgroundColor = this.$input.value, this;
+  }
+
+}
+
+exports.ColorController = a;
+
+class h extends t {
+  constructor(t, e, i) {
+    super(t, e, i, "function"), this.$button = document.createElement("button"), this.$button.appendChild(this.$name), this.$widget.appendChild(this.$button), this.$button.addEventListener("click", t => {
+      t.preventDefault(), this.getValue().call(this.object);
+    }), this.$button.addEventListener("touchstart", () => {}), this.$disable = this.$button;
+  }
+
+}
+
+exports.FunctionController = h;
+
+class d extends t {
+  constructor(t, e, i, s, r, n) {
+    super(t, e, i, "number"), this._initInput(), this.min(s), this.max(r);
+    const l = void 0 !== n;
+    this.step(l ? n : this._getImplicitStep(), l), this.updateDisplay();
+  }
+
+  min(t) {
+    return this._min = t, this._onUpdateMinMax(), this;
+  }
+
+  max(t) {
+    return this._max = t, this._onUpdateMinMax(), this;
+  }
+
+  step(t, e = !0) {
+    return this._step = t, this._stepExplicit = e, this;
+  }
+
+  updateDisplay() {
+    const t = this.getValue();
+
+    if (this._hasSlider) {
+      const e = (t - this._min) / (this._max - this._min);
+      this.$fill.style.setProperty("width", 100 * e + "%");
+    }
+
+    return this._inputFocused || (this.$input.value = t), this;
+  }
+
+  _initInput() {
+    this.$input = document.createElement("input"), this.$input.setAttribute("type", "text"), this.$input.setAttribute("inputmode", "numeric"), this.$input.setAttribute("aria-labelledby", this.$name.id), this.$widget.appendChild(this.$input), this.$disable = this.$input;
+
+    const t = t => {
+      const e = parseFloat(this.$input.value);
+      isNaN(e) || (this._snapClampSetValue(e + t), this.$input.value = this.getValue());
+    };
+
+    this.$input.addEventListener("focus", () => {
+      this._inputFocused = !0;
+    }), this.$input.addEventListener("input", () => {
+      const t = parseFloat(this.$input.value);
+      isNaN(t) || this.setValue(this._clamp(t));
+    }), this.$input.addEventListener("blur", () => {
+      this._inputFocused = !1, this.updateDisplay();
+    }), this.$input.addEventListener("keydown", e => {
+      "Enter" === e.code && this.$input.blur(), "ArrowUp" === e.code && (e.preventDefault(), t(this._step * this._arrowKeyMultiplier(e))), "ArrowDown" === e.code && (e.preventDefault(), t(-1 * this._step * this._arrowKeyMultiplier(e)));
+    }), this.$input.addEventListener("wheel", e => {
+      this._inputFocused && (e.preventDefault(), t(this._normalizeMouseWheel(e) * this._step));
+    }, {
+      passive: !1
+    });
+  }
+
+  _initSlider() {
+    this._hasSlider = !0, this.$slider = document.createElement("div"), this.$slider.classList.add("slider"), this.$fill = document.createElement("div"), this.$fill.classList.add("fill"), this.$slider.appendChild(this.$fill), this.$widget.insertBefore(this.$slider, this.$input), this.domElement.classList.add("hasSlider");
+
+    const t = t => {
+      const e = this.$slider.getBoundingClientRect();
+      let i = (s = t, r = e.left, n = e.right, l = this._min, o = this._max, (s - r) / (n - r) * (o - l) + l);
+      var s, r, n, l, o;
+
+      this._snapClampSetValue(i);
+    },
+          e = e => {
+      t(e.clientX);
+    },
+          i = () => {
+      this._setActiveStyle(!1), window.removeEventListener("mousemove", e), window.removeEventListener("mouseup", i);
+    };
+
+    this.$slider.addEventListener("mousedown", s => {
+      t(s.clientX), this._setActiveStyle(!0), window.addEventListener("mousemove", e), window.addEventListener("mouseup", i);
+    });
+    let s,
+        r,
+        n = !1;
+
+    const l = e => {
+      if (n) {
+        const i = e.touches[0].clientX - s,
+              a = e.touches[0].clientY - r;
+        Math.abs(i) > Math.abs(a) ? (e.preventDefault(), t(e.touches[0].clientX), this._setActiveStyle(!0), n = !1) : (window.removeEventListener("touchmove", l), window.removeEventListener("touchend", o));
+      } else e.preventDefault(), t(e.touches[0].clientX);
+    },
+          o = () => {
+      this._setActiveStyle(!1), window.removeEventListener("touchmove", l), window.removeEventListener("touchend", o);
+    };
+
+    this.$slider.addEventListener("touchstart", e => {
+      e.touches.length > 1 || (this._hasScrollBar ? (s = e.touches[0].clientX, r = e.touches[0].clientY, n = !0) : (e.preventDefault(), t(e.touches[0].clientX), this._setActiveStyle(!0), n = !1), window.addEventListener("touchmove", l, {
+        passive: !1
+      }), window.addEventListener("touchend", o));
+    });
+    this.$slider.addEventListener("wheel", t => {
+      if (Math.abs(t.deltaX) < Math.abs(t.deltaY) && this._hasScrollBar) return;
+      t.preventDefault();
+
+      const e = this._normalizeMouseWheel(t) * this._step;
+
+      this._snapClampSetValue(this.getValue() + e);
+    }, {
+      passive: !1
+    });
+  }
+
+  _setActiveStyle(t) {
+    this.$slider.classList.toggle("active", t), document.body.classList.toggle("lil-gui-slider-active", t);
+  }
+
+  _getImplicitStep() {
+    return this._hasMin && this._hasMax ? (this._max - this._min) / 1e3 : .1;
+  }
+
+  _onUpdateMinMax() {
+    !this._hasSlider && this._hasMin && this._hasMax && (this._stepExplicit || this.step(this._getImplicitStep(), !1), this._initSlider(), this.updateDisplay());
+  }
+
+  _normalizeMouseWheel(t) {
+    let {
+      deltaX: e,
+      deltaY: i
+    } = t;
+    Math.floor(t.deltaY) !== t.deltaY && t.wheelDelta && (e = 0, i = -t.wheelDelta / 120);
+    return e + -i;
+  }
+
+  _arrowKeyMultiplier(t) {
+    return this._stepExplicit ? t.shiftKey ? 10 : 1 : t.shiftKey ? 100 : t.altKey ? 1 : 10;
+  }
+
+  _snap(t) {
+    const e = Math.round(t / this._step) * this._step;
+
+    return parseFloat(e.toPrecision(15));
+  }
+
+  _clamp(t) {
+    const e = this._hasMin ? this._min : -1 / 0,
+          i = this._hasMax ? this._max : 1 / 0;
+    return Math.max(e, Math.min(i, t));
+  }
+
+  _snapClampSetValue(t) {
+    this.setValue(this._clamp(this._snap(t)));
+  }
+
+  get _hasScrollBar() {
+    const t = this.parent.root.$children;
+    return t.scrollHeight > t.clientHeight;
+  }
+
+  get _hasMin() {
+    return void 0 !== this._min;
+  }
+
+  get _hasMax() {
+    return void 0 !== this._max;
+  }
+
+}
+
+exports.NumberController = d;
+
+class c extends t {
+  constructor(t, e, i, s) {
+    super(t, e, i, "option"), this.$select = document.createElement("select"), this.$select.setAttribute("aria-labelledby", this.$name.id), this.$display = document.createElement("div"), this.$display.classList.add("display"), this._values = Array.isArray(s) ? s : Object.values(s), this._names = Array.isArray(s) ? s : Object.keys(s), this._names.forEach(t => {
+      const e = document.createElement("option");
+      e.innerHTML = t, this.$select.appendChild(e);
+    }), this.$select.addEventListener("change", () => {
+      this.setValue(this._values[this.$select.selectedIndex]);
+    }), this.$select.addEventListener("focus", () => {
+      this.$display.classList.add("focus");
+    }), this.$select.addEventListener("blur", () => {
+      this.$display.classList.remove("focus");
+    }), this.$widget.appendChild(this.$select), this.$widget.appendChild(this.$display), this.$disable = this.$select, this.updateDisplay();
+  }
+
+  updateDisplay() {
+    const t = this.getValue(),
+          e = this._values.indexOf(t);
+
+    return this.$select.selectedIndex = e, this.$display.innerHTML = -1 === e ? t : this._names[e], this;
+  }
+
+}
+
+exports.OptionController = c;
+
+class u extends t {
+  constructor(t, e, i) {
+    super(t, e, i, "string"), this.$input = document.createElement("input"), this.$input.setAttribute("type", "text"), this.$input.setAttribute("aria-labelledby", this.$name.id), this.$input.addEventListener("input", () => {
+      this.setValue(this.$input.value);
+    }), this.$input.addEventListener("keydown", t => {
+      "Enter" === t.code && this.$input.blur();
+    }), this.$widget.appendChild(this.$input), this.$disable = this.$input, this.updateDisplay();
+  }
+
+  updateDisplay() {
+    return this.$input.value = this.getValue(), this;
+  }
+
+}
+
+exports.StringController = u;
+let p = !1;
+
+class g {
+  constructor({
+    parent: t,
+    autoPlace: e = void 0 === t,
+    touchStyles: i = !0,
+    container: s,
+    injectStyles: r = !0,
+    title: n = "Controls",
+    width: l
+  } = {}) {
+    if (this.parent = t, this.root = t ? t.root : this, this.children = [], this.controllers = [], this.folders = [], this._closed = !1, this.domElement = document.createElement("div"), this.domElement.classList.add("lil-gui"), this.$title = document.createElement("div"), this.$title.classList.add("title"), this.$title.setAttribute("role", "button"), this.$title.setAttribute("aria-expanded", !0), this.$title.setAttribute("tabindex", 0), this.$title.addEventListener("click", () => this.openAnimated(this._closed)), this.$title.addEventListener("keydown", t => {
+      "Enter" !== t.code && "Space" !== t.code || (t.preventDefault(), this.$title.click());
+    }), this.$title.addEventListener("touchstart", () => {}), this.$children = document.createElement("div"), this.$children.classList.add("children"), this.domElement.appendChild(this.$title), this.domElement.appendChild(this.$children), this.title(n), this.parent) return this.parent.children.push(this), this.parent.folders.push(this), void this.parent.$children.appendChild(this.domElement);
+    this.domElement.classList.add("root"), !p && r && (!function (t) {
+      const e = document.createElement("style");
+      e.innerHTML = t;
+      const i = document.querySelector("head link[rel=stylesheet], head style");
+      i ? document.head.insertBefore(e, i) : document.head.appendChild(e);
+    }('.lil-gui{font-family:var(--font-family);font-size:var(--font-size);line-height:1;font-weight:normal;font-style:normal;text-align:left;background-color:var(--background-color);color:var(--text-color);user-select:none;-webkit-user-select:none;touch-action:manipulation;--background-color:#1f1f1f;--text-color:#ebebeb;--title-background-color:#111;--title-text-color:#ebebeb;--widget-color:#424242;--hover-color:#4f4f4f;--focus-color:#595959;--number-color:#2cc9ff;--string-color:#a2db3c;--font-size:11px;--input-font-size:11px;--font-family:-apple-system,BlinkMacSystemFont,"Lucida Grande","Segoe UI",Roboto,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";--font-family-mono:Menlo,Monaco,Consolas,"Droid Sans Mono",monospace,"Droid Sans Fallback";--padding:4px;--spacing:4px;--widget-height:20px;--name-width:45%;--slider-knob-width:2px;--slider-input-width:27%;--color-input-width:27%;--slider-input-min-width:45px;--color-input-min-width:45px;--folder-indent:7px;--widget-padding:0 0 0 3px;--widget-border-radius:2px;--checkbox-size:calc(.75*var(--widget-height));--scrollbar-width: 5px}.lil-gui,.lil-gui *{box-sizing:border-box;margin:0}.lil-gui.root{width:var(--width, 245px);display:flex;flex-direction:column}.lil-gui.root>.title{background:var(--title-background-color);color:var(--title-text-color)}.lil-gui.root>.children{overflow:auto}.lil-gui.root>.children::-webkit-scrollbar{width:var(--scrollbar-width);height:var(--scrollbar-width);background:var(--background-color)}.lil-gui.root>.children::-webkit-scrollbar-thumb{border-radius:var(--scrollbar-width);background:var(--focus-color)}.lil-gui .lil-gui{--background-color:inherit;--text-color:inherit;--title-background-color:inherit;--title-text-color:inherit;--widget-color:inherit;--hover-color:inherit;--focus-color:inherit;--number-color:inherit;--string-color:inherit;--font-size:inherit;--input-font-size:inherit;--font-family:inherit;--font-family-mono:inherit;--padding:inherit;--spacing:inherit;--widget-height:inherit;--name-width:inherit;--slider-knob-width:inherit;--slider-input-width:inherit;--color-input-width:inherit;--slider-input-min-width:inherit;--color-input-min-width:inherit;--folder-indent:inherit;--widget-padding:inherit;--widget-border-radius:inherit;--checkbox-size:inherit}@media(pointer: coarse){.lil-gui.allow-touch-styles{--widget-height: 28px;--padding: 6px;--spacing: 6px;--font-size: 13px;--input-font-size: 16px;--folder-indent: 10px;--widget-padding: 0 0 0 3px;--scrollbar-width: 7px;--slider-input-min-width: 50px;--color-input-min-width: 65px}}.lil-gui.force-touch-styles{--widget-height: 28px;--padding: 6px;--spacing: 6px;--font-size: 13px;--input-font-size: 16px;--folder-indent: 10px;--widget-padding: 0 0 0 3px;--scrollbar-width: 7px;--slider-input-min-width: 50px;--color-input-min-width: 65px}.lil-gui.autoPlace{max-height:100%;position:fixed;top:0;right:15px;z-index:1001}.lil-gui .controller{display:flex;align-items:center;padding:0 var(--padding);margin:var(--spacing) 0}.lil-gui .controller.disabled{opacity:.5}.lil-gui .controller.disabled,.lil-gui .controller.disabled *{pointer-events:none !important}.lil-gui .controller .name{min-width:var(--name-width);flex-shrink:0;white-space:pre;padding-right:var(--spacing);line-height:var(--widget-height)}.lil-gui .controller .widget{position:relative;display:flex;align-items:center;width:100%;min-height:var(--widget-height)}.lil-gui .controller.function .name{line-height:unset;padding:0}.lil-gui .controller.string input{color:var(--string-color)}.lil-gui .controller.boolean .widget{cursor:pointer}.lil-gui .controller.color .display{width:100%;height:var(--widget-height);border-radius:var(--widget-border-radius);position:relative}@media(hover: hover){.lil-gui .controller.color .display:hover:before{content:" ";display:block;position:absolute;border-radius:var(--widget-border-radius);border:1px solid #fff9;left:0;right:0;top:0;bottom:0}}.lil-gui .controller.color input[type=color]{opacity:0;width:100%;height:100%;cursor:pointer}.lil-gui .controller.color input[type=text]{margin-left:var(--spacing);font-family:var(--font-family-mono);min-width:var(--color-input-min-width);width:var(--color-input-width);flex-shrink:0}.lil-gui .controller.option select{opacity:0;position:absolute;width:100%;max-width:100%}.lil-gui .controller.option .display{position:relative;pointer-events:none;border-radius:var(--widget-border-radius);height:var(--widget-height);line-height:var(--widget-height);max-width:100%;overflow:hidden;word-break:break-all;padding-left:.55em;padding-right:1.75em;background:var(--widget-color)}@media(hover: hover){.lil-gui .controller.option .display.focus{background:var(--focus-color)}}.lil-gui .controller.option .display.active{background:var(--focus-color)}.lil-gui .controller.option .display:after{font-family:"lil-gui";content:"↕";position:absolute;top:0;right:0;bottom:0;padding-right:.375em}.lil-gui .controller.option .widget,.lil-gui .controller.option select{cursor:pointer}@media(hover: hover){.lil-gui .controller.option .widget:hover .display{background:var(--hover-color)}}.lil-gui .controller.number input{color:var(--number-color)}.lil-gui .controller.number.hasSlider input{margin-left:var(--spacing);width:var(--slider-input-width);min-width:var(--slider-input-min-width);flex-shrink:0}.lil-gui .controller.number .slider{width:100%;height:var(--widget-height);background-color:var(--widget-color);border-radius:var(--widget-border-radius);padding-right:var(--slider-knob-width);overflow:hidden;cursor:ew-resize;touch-action:pan-y}@media(hover: hover){.lil-gui .controller.number .slider:hover{background-color:var(--hover-color)}}.lil-gui .controller.number .slider.active{background-color:var(--focus-color)}.lil-gui .controller.number .slider.active .fill{opacity:.95}.lil-gui .controller.number .fill{height:100%;border-right:var(--slider-knob-width) solid var(--number-color);box-sizing:content-box}.lil-gui-slider-active .lil-gui{--hover-color: var(--widget-color)}.lil-gui-slider-active *{cursor:ew-resize !important}.lil-gui .title{--title-height: calc(var(--widget-height) + var(--spacing) * 1.25);height:var(--title-height);line-height:calc(var(--title-height) - 4px);font-weight:600;padding:0 var(--padding);-webkit-tap-highlight-color:transparent;cursor:pointer;outline:none;text-decoration-skip:objects}.lil-gui .title:before{font-family:"lil-gui";content:"▾";padding-right:2px;display:inline-block}.lil-gui .title:active{background:var(--title-background-color);opacity:.75}@media(hover: hover){.lil-gui .title:hover{background:var(--title-background-color);opacity:.85}.lil-gui .title:focus{text-decoration:underline var(--focus-color)}}.lil-gui.root>.title:focus{text-decoration:none !important}.lil-gui.closed>.title:before{content:"▸"}.lil-gui.closed>.children{transform:translateY(-7px);opacity:0}.lil-gui.closed:not(.transition)>.children{display:none}.lil-gui.transition>.children{transition-duration:300ms;transition-property:height,opacity,transform;transition-timing-function:cubic-bezier(0.215, 0.61, 0.355, 1);overflow:hidden;pointer-events:none}.lil-gui .children:empty:before{content:"Empty";padding:0 var(--padding);margin:var(--spacing) 0;display:block;height:var(--widget-height);font-style:italic;line-height:var(--widget-height);opacity:.5}.lil-gui.root>.children>.lil-gui>.title{border:0 solid var(--widget-color);border-width:1px 0;transition:border-color 300ms}.lil-gui.root>.children>.lil-gui.closed>.title{border-bottom-color:transparent}.lil-gui+.controller{border-top:1px solid var(--widget-color);margin-top:0;padding-top:var(--spacing)}.lil-gui .lil-gui .lil-gui>.title{border:none}.lil-gui .lil-gui .lil-gui>.children{border:none;margin-left:var(--folder-indent);border-left:2px solid var(--widget-color)}.lil-gui .lil-gui .controller{border:none}.lil-gui input{-webkit-tap-highlight-color:transparent;border:0;outline:none;font-family:var(--font-family);font-size:var(--input-font-size);border-radius:var(--widget-border-radius);height:var(--widget-height);background:var(--widget-color);color:var(--text-color);width:100%}@media(hover: hover){.lil-gui input:hover{background:var(--hover-color)}.lil-gui input:active{background:var(--focus-color)}}.lil-gui input[type=text]{padding:var(--widget-padding)}.lil-gui input[type=text]:focus{background:var(--focus-color)}.lil-gui input[type=checkbox]{appearance:none;-webkit-appearance:none;height:var(--checkbox-size);width:var(--checkbox-size);border-radius:var(--widget-border-radius);text-align:center}.lil-gui input[type=checkbox]:checked:before{font-family:"lil-gui";content:"✓";font-size:var(--checkbox-size);line-height:var(--checkbox-size)}@media(hover: hover){.lil-gui input[type=checkbox]:focus{box-shadow:inset 0 0 0 1px var(--focus-color)}}.lil-gui button{-webkit-tap-highlight-color:transparent;outline:none;cursor:pointer;font-family:var(--font-family);font-size:var(--font-size);color:var(--text-color);width:100%;height:var(--widget-height);text-transform:none;background:var(--widget-color);border-radius:var(--widget-border-radius);border:1px solid var(--widget-color);text-align:center;line-height:calc(var(--widget-height)*.725)}@media(hover: hover){.lil-gui button:hover{background:var(--hover-color);border-color:var(--hover-color)}.lil-gui button:focus{border-color:var(--focus-color)}}.lil-gui button:active{background:var(--focus-color)}@font-face{font-family:"lil-gui";src:url("data:application/font-woff;charset=utf-8;base64,d09GRgABAAAAAAUsAAsAAAAACJwAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAABHU1VCAAABCAAAAH4AAADAImwmYE9TLzIAAAGIAAAAPwAAAGBKqH5SY21hcAAAAcgAAAD0AAACrukyyJBnbHlmAAACvAAAAF8AAACEIZ5WI2hlYWQAAAMcAAAAJwAAADZfcj23aGhlYQAAA0QAAAAYAAAAJAC5AHhobXR4AAADXAAAABAAAABMAZAAAGxvY2EAAANsAAAAFAAAACgCEgIybWF4cAAAA4AAAAAeAAAAIAEfABJuYW1lAAADoAAAASIAAAIK9SUU/XBvc3QAAATEAAAAZgAAAJCTcMc2eJxVjbEOgjAURU+hFRBK1dGRL+ALnAiToyMLEzFpnPz/eAshwSa97517c/MwwJmeB9kwPl+0cf5+uGPZXsqPu4nvZabcSZldZ6kfyWnomFY/eScKqZNWupKJO6kXN3K9uCVoL7iInPr1X5baXs3tjuMqCtzEuagm/AAlzQgPAAB4nGNgYRBlnMDAysDAYM/gBiT5oLQBAwuDJAMDEwMrMwNWEJDmmsJwgCFeXZghBcjlZMgFCzOiKOIFAB71Bb8AeJy1kjFuwkAQRZ+DwRAwBtNQRUGKQ8OdKCAWUhAgKLhIuAsVSpWz5Bbkj3dEgYiUIszqWdpZe+Z7/wB1oCYmIoboiwiLT2WjKl/jscrHfGg/pKdMkyklC5Zs2LEfHYpjcRoPzme9MWWmk3dWbK9ObkWkikOetJ554fWyoEsmdSlt+uR0pCJR34b6t/TVg1SY3sYvdf8vuiKrpyaDXDISiegp17p7579Gp3p++y7HPAiY9pmTibljrr85qSidtlg4+l25GLCaS8e6rRxNBmsnERunKbaOObRz7N72ju5vdAjYpBXHgJylOAVsMseDAPEP8LYoUHicY2BiAAEfhjAGJgZWBgZ7RnFRdnVJELCRlBSRlATJMoLV2DK4glSYs6ubq5vbKrJLSbGrgEmovDuDJVhe3VzcXFwNLCOILB/C4IuQ1xTn5FPilBTj5FPmBAB76woyAHicY2BkYGAA4sklsQ/j+W2+MnAzpDBgAyEMYUCSg4EJxAEAvVwFCgB4nGNgZGBgSGFggJMhDIwMqEAYAByHATJ4nGNgAIIUNEwmAABl3AGReJxjYAACIQYlBiMGJ3wQAEcQBEV4nGNgZGBgEGZgY2BiAAEQyQWEDAz/wXwGAAsPATIAAHicXdBNSsNAHAXwl35iA0UQXYnMShfS9GPZA7T7LgIu03SSpkwzYTIt1BN4Ak/gKTyAeCxfw39jZkjymzcvAwmAW/wgwHUEGDb36+jQQ3GXGot79L24jxCP4gHzF/EIr4jEIe7wxhOC3g2TMYy4Q7+Lu/SHuEd/ivt4wJd4wPxbPEKMX3GI5+DJFGaSn4qNzk8mcbKSR6xdXdhSzaOZJGtdapd4vVPbi6rP+cL7TGXOHtXKll4bY1Xl7EGnPtp7Xy2n00zyKLVHfkHBa4IcJ2oD3cgggWvt/V/FbDrUlEUJhTn/0azVWbNTNr0Ens8de1tceK9xZmfB1CPjOmPH4kitmvOubcNpmVTN3oFJyjzCvnmrwhJTzqzVj9jiSX911FjeAAB4nG3HMRKCMBBA0f0giiKi4DU8k0V2GWbIZDOh4PoWWvq6J5V8If9NVNQcaDhyouXMhY4rPTcG7jwYmXhKq8Wz+p762aNaeYXom2n3m2dLTVgsrCgFJ7OTmIkYbwIbC6vIB7WmFfAAAA==") format("woff")}'), p = !0), s ? s.appendChild(this.domElement) : e && (this.domElement.classList.add("autoPlace"), document.body.appendChild(this.domElement)), i && this.domElement.classList.add("allow-touch-styles"), l && this.domElement.style.setProperty("--width", l + "px");
+  }
+
+  add(t, i, s, r, n) {
+    if (Object(s) === s) return new c(this, t, i, s);
+    const l = t[i];
+
+    switch (typeof l) {
+      case "number":
+        return new d(this, t, i, s, r, n);
+
+      case "boolean":
+        return new e(this, t, i);
+
+      case "string":
+        return new u(this, t, i);
+
+      case "function":
+        return new h(this, t, i);
+    }
+
+    console.error(`Failed to add controller for "${i}"`, l, t);
+  }
+
+  addColor(t, e, i = 1) {
+    return new a(this, t, e, i);
+  }
+
+  addFolder(t) {
+    return new g({
+      parent: this,
+      title: t
+    });
+  }
+
+  load(t, e = !0) {
+    if (!("controllers" in t)) throw new Error('Invalid load object. Should contain a "controllers" key.');
+    return this.controllers.forEach(e => {
+      e instanceof h || e._name in t.controllers && e.load(t.controllers[e._name]);
+    }), e && t.folders && this.folders.forEach(e => {
+      e._title in t.folders && e.load(t.folders[e._title]);
+    }), this;
+  }
+
+  save(t = !0) {
+    const e = {
+      controllers: {},
+      folders: {}
+    };
+    return this.controllers.forEach(t => {
+      if (!(t instanceof h)) {
+        if (t._name in e.controllers) throw new Error(`Cannot save GUI with duplicate property "${t._name}"`);
+        e.controllers[t._name] = t.save();
+      }
+    }), t && this.folders.forEach(t => {
+      if (t._title in e.folders) throw new Error(`Cannot save GUI with duplicate folder "${t._title}"`);
+      e.folders[t._title] = t.save();
+    }), e;
+  }
+
+  open(t = !0) {
+    return this._closed = !t, this.$title.setAttribute("aria-expanded", !this._closed), this.domElement.classList.toggle("closed", this._closed), this;
+  }
+
+  close() {
+    return this.open(!1);
+  }
+
+  openAnimated(t = !0) {
+    return this._closed = !t, this.$title.setAttribute("aria-expanded", !this._closed), requestAnimationFrame(() => {
+      const e = this.$children.clientHeight;
+      this.$children.style.height = e + "px", this.domElement.classList.add("transition");
+
+      const i = t => {
+        t.target === this.$children && (this.$children.style.height = "", this.domElement.classList.remove("transition"), this.$children.removeEventListener("transitionend", i));
+      };
+
+      this.$children.addEventListener("transitionend", i);
+      const s = t ? this.$children.scrollHeight : 0;
+      this.domElement.classList.toggle("closed", !t), requestAnimationFrame(() => {
+        this.$children.style.height = s + "px";
+      });
+    }), this;
+  }
+
+  title(t) {
+    return this._title = t, this.$title.innerHTML = t, this;
+  }
+
+  reset(t = !0) {
+    return (t ? this.controllersRecursive() : this.controllers).forEach(t => t.reset()), this;
+  }
+
+  onChange(t) {
+    return this._onChange = t, this;
+  }
+
+  _callOnChange(t) {
+    this.parent && this.parent._callOnChange(t), void 0 !== this._onChange && this._onChange.call(this, {
+      object: t.object,
+      property: t.property,
+      value: t.getValue(),
+      controller: t
+    });
+  }
+
+  destroy() {
+    this.parent && (this.parent.children.splice(this.parent.children.indexOf(this), 1), this.parent.folders.splice(this.parent.folders.indexOf(this), 1)), this.domElement.parentElement && this.domElement.parentElement.removeChild(this.domElement), Array.from(this.children).forEach(t => t.destroy()), this._onResize && window.removeEventListener("resize", this._onResize);
+  }
+
+  controllersRecursive() {
+    let t = Array.from(this.controllers);
+    return this.folders.forEach(e => {
+      t = t.concat(e.controllersRecursive());
+    }), t;
+  }
+
+  foldersRecursive() {
+    let t = Array.from(this.folders);
+    return this.folders.forEach(e => {
+      t = t.concat(e.foldersRecursive());
+    }), t;
+  }
+
+}
+
+exports.GUI = g;
+var _default = g;
+exports.default = _default;
 },{}],"terrain.js":[function(require,module,exports) {
 "use strict";
 
@@ -38036,6 +38615,8 @@ var _vertexShader = _interopRequireDefault(require("./shader/vertexShader.glsl")
 
 var _fragmentShader = _interopRequireDefault(require("./shader/fragmentShader.glsl"));
 
+var _lilGuiModuleMin = require("three/examples/jsm/libs/lil-gui.module.min.js");
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _getRequireWildcardCache(nodeInterop) { if (typeof WeakMap !== "function") return null; var cacheBabelInterop = new WeakMap(); var cacheNodeInterop = new WeakMap(); return (_getRequireWildcardCache = function (nodeInterop) { return nodeInterop ? cacheNodeInterop : cacheBabelInterop; })(nodeInterop); }
@@ -38046,8 +38627,6 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
 
 // var typeface = require('three.regular.helvetiker');
 // THREE.typeface_js.loadFace(typeface);
-// import vertex from './shader/vertexShader.glsl'
-// import fragment from './shader/fragmentShader.glsl'
 // import Text from './text.js'
 
 /* -------------------------------------------------------------------------- */
@@ -38060,9 +38639,7 @@ var renderer = new THREE.WebGLRenderer({
   alpha: true
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement); // console.log(Text);
-// console.log(111);
-
+document.body.appendChild(renderer.domElement);
 /* -------------------------------------------------------------------------- */
 
 /*                               scene & camera                               */
@@ -38070,7 +38647,11 @@ document.body.appendChild(renderer.domElement); // console.log(Text);
 /* -------------------------------------------------------------------------- */
 
 var scene = new THREE.Scene();
-var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+var bgColor = new THREE.Color("black"); //0xefd1b5
+
+scene.background = bgColor;
+scene.fog = new THREE.Fog(bgColor, 1., 2000.);
+var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.z = 5;
 camera.position.y = 1;
 /* -------------------------------------------------------------------------- */
@@ -38106,24 +38687,24 @@ fontLoader.load("https://threejs.org//examples/fonts/helvetiker_regular.typeface
 /* -------------------------------------------------------------------------- */
 
 var dirLight = new THREE.DirectionalLight(0xffffff, 0.125);
-dirLight.position.set(0, 0, 1).normalize();
-scene.add(dirLight);
+dirLight.position.set(0, 0, 1).normalize(); //scene.add(dirLight);
+
 var pointLight = new THREE.PointLight(0xffffff, 1.5);
-pointLight.position.set(0, 100, 90);
-scene.add(pointLight);
+pointLight.position.set(0, 100, 90); //scene.add(pointLight);
+
 /* -------------------------------------------------------------------------- */
 
 /*                                    mesh                                    */
 
 /* -------------------------------------------------------------------------- */
+//terrain
 
-var planeGeometry = new THREE.PlaneGeometry(10, 10, 1500, 1500);
+var planeGeometry = new THREE.PlaneGeometry(20, 20, 1500, 1500);
 var planeMaterial = new THREE.ShaderMaterial({
-  depthWrite: false,
-  depthTest: false,
-  side: THREE.DoubleSide,
-  //  blending: THREE.AdditiveBlending,
-  vertexColors: true,
+  //    depthWrite: false,
+  //    depthTest: false,
+  // blending: THREE.AdditiveBlending,
+  transparent: true,
   vertexShader: _vertexShader.default,
   fragmentShader: _fragmentShader.default,
   uniforms: {
@@ -38132,15 +38713,44 @@ var planeMaterial = new THREE.ShaderMaterial({
     },
     uNoise: {
       value: 0
-    } // wPlane: {},
-    // hPlane: {},
-
+    },
+    fogColor: {
+      type: "c",
+      value: scene.fog.color
+    },
+    fogNear: {
+      type: "f",
+      value: scene.fog.near
+    },
+    fogFar: {
+      type: "f",
+      value: scene.fog.far
+    },
+    uHeight: {
+      value: 3.1
+    }
+  },
+  fog: true
+});
+var terrainMesh = new THREE.Mesh(planeGeometry, planeMaterial);
+terrainMesh.rotation.x = -Math.PI / 2;
+scene.add(terrainMesh);
+var sunGeometry = new THREE.PlaneGeometry(50, 50);
+var sunMaterial = new THREE.ShaderMaterial({
+  vertexShader: "\n  varying vec2 vUv;\n  void main() {\n    vUv = uv;\n    float rotation = 0.0;\n    vec3 scale = vec3(1., 1., 1.);\n  \n    vec3 alignedPosition = position * scale;\n    vec2 pos = alignedPosition.xy;\n  \n    vec2 rotatedPosition;\n    rotatedPosition.x = cos(rotation) * alignedPosition.x - sin(rotation) * alignedPosition.y;\n    rotatedPosition.y = sin(rotation) * alignedPosition.x + cos(rotation) * alignedPosition.y;\n  \n    vec4 finalPosition;\n  \n    finalPosition = modelViewMatrix * vec4(1.0, 0.0, 0.0, 1.0);\n    finalPosition.xy += rotatedPosition;\n    finalPosition = projectionMatrix * finalPosition;\n  \n    gl_Position = finalPosition;\n  }",
+  fragmentShader: "\n  varying vec2 vUv;\n  vec3 cosPalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {\n    return a + b * cos(6.28318 * (c * t + d));\n}\n  float circleSDF(vec2 st) {\n    return length(st - 0.5) * 2.; // map (-0.5,0.5) to (-1,1)\n}\n  void main() {\n      vec3 col = vec3(0.);\n\n      vec3 brightness = vec3(0.749, 0.3333, 0.8314);\n      vec3 contrast = vec3(0.1804, 0.1804, 0.1804);\n      vec3 osc = vec3(2.2);\n      \n      //very great pink and orange\n      vec3 phase = vec3(0.7922, 0.7608, 0.3059);\n  \n      col += cosPalette(vUv.y * 0.3, brightness, contrast, osc, phase);\n\n      float circle = 1.-circleSDF(vUv);\n      gl_FragColor = mix(vec4(0.), vec4(col,1.0), smoothstep(0.,0.0,circle));\n\n  }\n  ",
+  transparent: true,
+  // blending:THREE.AdditiveBlending,
+  uniforms: {
+    uTime: {
+      value: 0
+    }
   }
 });
-console.log(planeGeometry);
-var plane = new THREE.Mesh(planeGeometry, planeMaterial);
-plane.rotation.x = Math.PI / 2;
-scene.add(plane);
+var sun = new THREE.Mesh(sunGeometry, sunMaterial);
+sun.position.z = -90;
+scene.add(sun);
+0;
 /* -------------------------------------------------------------------------- */
 
 /*                              [camera controler]                              */
@@ -38154,9 +38764,9 @@ var controls = new _OrbitControls.OrbitControls(camera, renderer.domElement);
 
 /* -------------------------------------------------------------------------- */
 
-var gridHelper = new THREE.GridHelper(10, 10); // scene.add(gridHelper);
+var gridHelper = new THREE.GridHelper(10, 10); //scene.add(gridHelper);
 
-var axesHelper = new THREE.AxesHelper(5); // scene.add(axesHelper);
+var axesHelper = new THREE.AxesHelper(5); //scene.add(axesHelper);
 
 var blocker = document.getElementById('blocker');
 blocker.style.display = 'none';
@@ -38181,6 +38791,31 @@ function onWindowResize() {
 window.addEventListener('resize', onWindowResize, false);
 /* -------------------------------------------------------------------------- */
 
+/*                                    GUI                                    */
+
+/* -------------------------------------------------------------------------- */
+
+var gui = new _lilGuiModuleMin.GUI(),
+    propsLocal = {
+  get height() {
+    return planeMaterial.uniforms.uHeight.value;
+  },
+
+  set height(v) {
+    planeMaterial.uniforms.uHeight.value = v;
+  }
+
+};
+var Terrain = gui.addFolder('Terrain');
+var texture = gui.addFolder('Texture');
+var colorPattern = gui.addFolder('ColorPattern');
+Terrain.add(propsLocal, 'height', 0., 10.); // gui.add( params, 'colorMap', [ 'rainbow', 'cooltowarm', 'blackbody', 'grayscale' ] ).onChange( function () {
+//     updateColors();
+//     render();
+// } );
+
+/* -------------------------------------------------------------------------- */
+
 /*                                    loop                                    */
 
 /* -------------------------------------------------------------------------- */
@@ -38194,7 +38829,7 @@ var animate = function animate() {
 };
 
 animate();
-},{"three":"../node_modules/three/build/three.module.js","three/examples/jsm/controls/OrbitControls":"../node_modules/three/examples/jsm/controls/OrbitControls.js","three/examples/jsm/geometries/TextGeometry.js":"../node_modules/three/examples/jsm/geometries/TextGeometry.js","three/examples/jsm/loaders/FontLoader.js":"../node_modules/three/examples/jsm/loaders/FontLoader.js","./shader/vertexShader.glsl":"shader/vertexShader.glsl","./shader/fragmentShader.glsl":"shader/fragmentShader.glsl"}],"../node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"three":"../node_modules/three/build/three.module.js","three/examples/jsm/controls/OrbitControls":"../node_modules/three/examples/jsm/controls/OrbitControls.js","three/examples/jsm/geometries/TextGeometry.js":"../node_modules/three/examples/jsm/geometries/TextGeometry.js","three/examples/jsm/loaders/FontLoader.js":"../node_modules/three/examples/jsm/loaders/FontLoader.js","./shader/vertexShader.glsl":"shader/vertexShader.glsl","./shader/fragmentShader.glsl":"shader/fragmentShader.glsl","three/examples/jsm/libs/lil-gui.module.min.js":"../node_modules/three/examples/jsm/libs/lil-gui.module.min.js"}],"../node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;

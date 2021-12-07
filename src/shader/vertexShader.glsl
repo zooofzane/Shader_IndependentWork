@@ -2,11 +2,15 @@ uniform float uTime;
 uniform float uSize;
 uniform float uNoise;
 uniform float ustate;
+uniform float uHeight;
 
 varying vec3 vColor;
 varying vec3 vNormal;
+varying vec4 vPosition;
 varying vec3 vNN; 
 varying vec3 vEye;
+varying vec2 vUv;
+varying float vNoiseParam;
 
 attribute vec3 aRandom;
 
@@ -96,7 +100,7 @@ float cnoise(vec3 P)
     vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);
     vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);
     float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x); 
-    return  n_xyz + 0.5;
+    return  n_xyz+0.3;
 }
 
 
@@ -106,11 +110,32 @@ float circleSDF(vec2 st, vec2 center){
     return length(st-center);// (>0)
 }
 
+float curveSDF(vec2 st, float center){
+  return abs(st.x-center+sin(st.y * 0.7)*1.);
+}
+
+
+
 float generateHeight(vec3 pos){
-    vec2 planeCenter = vec2(0.,0.);
-    float planeRadius = 3.5;
-    float scale = smoothstep(planeRadius-2.,planeRadius+2.,circleSDF(pos.xy,planeCenter));
-    return 8.7 * cnoise(pos.yzx*0.2+0.5*uTime) * scale;
+    float hill = 0.;
+    //create a flat path
+    float scale = 0.;
+    float width = 4.5;
+    scale = smoothstep(width/2.-1.2,width/2.+1.2,curveSDF(pos.xy,0.0));
+    
+    //make the hill noise from front to back
+    float a = step(pos.x,0.)*2.-1.;
+    a*=0.4;
+
+   vec3 p = vec3(pos.x*0.4+uTime*a,pos.y*0.3+uTime*0.4,pos.z);
+   hill += uHeight * cnoise(p);
+   hill += 1.* cnoise(vec3(pos.x*0.2+uTime*a,pos.y*0.3+0.5,pos.z));
+   hill += 1.* cnoise(vec3(pos.x*0.6+uTime*a,pos.y*0.1+0.5,pos.z));
+ //  vec3 p2 = vec3(1.,pos.y*0.2+1.,pos.z)*0.7;
+ //  hill += 7.7 * cnoise(p2);
+   hill *= scale *0.9;
+   hill += 0.5* cnoise(pos*0.2);
+   return hill;
 }
 
 float getDist(vec3 pos) { //get distance to the plane from the a input position
@@ -133,10 +158,8 @@ vec3 estimateNormal(vec3 p) {
 
 
 void main() {
-    vec3 pos = position;
-    vNormal = estimateNormal(pos);
-
-
+    vNormal = estimateNormal(position);
+    vUv = uv;
     mat4 LM = modelMatrix;
           LM[2][3] = 0.0;
           LM[3][0] = 0.0;
@@ -147,29 +170,23 @@ void main() {
 
     vNN = normalize(GN.xyz);
     vEye = normalize(GN.xyz-cameraPosition);
-   
 
 
-    vec4 mvPosition = modelViewMatrix * vec4( pos, 1.0 );
+    vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+    mvPosition.y += generateHeight(position);
+    mvPosition.y -=1.;
 
-   
-    vec2 planeCenter = vec2(0.,0.);
-    float planeRadius = 3.5;
-    float scale = smoothstep(planeRadius-0.5,planeRadius+0.5,circleSDF(pos.xy,planeCenter));
-
+    vPosition = mvPosition;
+    vNoiseParam = generateHeight(position);
 
     gl_Position = projectionMatrix * mvPosition;
-       gl_Position.y += generateHeight(pos);
+    
+   
 
    
 
-
- 
-
-   // float generateHeight=  15.9 * noise(0.15 * vec2(pos.x, pos.y))* scaleY;
-
    
-    vColor = vec3(1.); 
+
 }
 
 
