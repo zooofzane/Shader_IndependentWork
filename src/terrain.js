@@ -1,11 +1,20 @@
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
-import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
-import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
+import {
+    OrbitControls
+} from 'three/examples/jsm/controls/OrbitControls'
+import {
+    TextGeometry
+} from 'three/examples/jsm/geometries/TextGeometry.js'
+import {
+    FontLoader
+} from 'three/examples/jsm/loaders/FontLoader.js'
 import vertex from './shader/vertexShader.glsl'
 import fragment from './shader/fragmentShader.glsl'
-import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min.js';
+import {
+    GUI
+} from 'three/examples/jsm/libs/lil-gui.module.min.js';
 import * as dat from 'dat.gui'
+// import Text from './text'
 
 
 // var typeface = require('three.regular.helvetiker');
@@ -55,32 +64,153 @@ camera.position.y = 1;
 /* -------------------------------------------------------------------------- */
 /*                                    text                                    */
 /* -------------------------------------------------------------------------- */
-
+let text = "TTT";
+let textMesh;
+let firstLetter = true;
 let fontLoader = new FontLoader();
-// fontLoader.load("./DINPro-Regular_Regular.typeface.json",function(tex){
-// fontLoader.load("three/examples/fonts/helvetiker_regular.typeface.json",function(tex){
-fontLoader.load("https://threejs.org//examples/fonts/helvetiker_regular.typeface.json", function (tex) {
-    // fontLoader.load("three.regular.helvetiker/index.js",function(tex){
-    // fontLoader.load("./helvetiker_regular.typeface.json", function (tex) {
-    let textGeo = new TextGeometry('Test', {
-        size: .1,
-        height: .1,
-        curveSegments: 6,
-        font: "helvetiker",
-        font: tex,
-        // font: "DINPro-Regular",
-        // style: "normal"
-    });
-    let color = new THREE.Color();
-    color.setRGB(255, 250, 250);
-    let textMaterial = new THREE.MeshBasicMaterial({
-        color: color
-    });
-    let text = new THREE.Mesh(textGeo, textMaterial);
-    scene.add(text);
-});
+let group = new THREE.Group();
+
+// bevelEnabled = true,
+
+// font = undefined,
+
+// fontName = 'optimer', // helvetiker, optimer, gentilis, droid sans, droid serif
+// fontWeight = 'bold'; // normal bold
+
+function createText() {
+    fontLoader.load("https://threejs.org//examples/fonts/helvetiker_regular.typeface.json", function (tex) {
+        let textGeo = new TextGeometry(text, {
+            size: 1.,
+            height: .1,
+            curveSegments: 25,
+            font: tex,
+            // bevelThickness: bevelThickness,
+            // bevelSize: bevelSize,
+            // bevelEnabled: bevelEnabled
+        });
+        let color = new THREE.Color();
+        color.setRGB(255, 250, 250);
+        let textMaterial = new THREE.MeshBasicMaterial({
+            color: color
+        });
+
+        refreshText();
+
+        textMesh = new THREE.Mesh(textGeo, textMaterial);
+        textGeo.computeBoundingBox();
+        let centerOffset = -0.5 * (textGeo.boundingBox.max.x - textGeo.boundingBox.min.x);
+        textMesh.position.x = centerOffset;
+        textMesh.position.y = .5;
+        textMesh.position.z = 0;
+
+        textMesh.rotation.y = Math.PI * 2;
+
+        group.add(textMesh);
+    })
+}
+
+const hash = document.location.hash.substr(1);
+
+if (hash.length !== 0) {
+
+    // 					// const colorhash = hash.substring( 0, 6 );
+    // 					// const fonthash = hash.substring( 6, 7 );
+    // 					// const weighthash = hash.substring( 7, 8 );
+    // 					// const bevelhash = hash.substring( 8, 9 );
+    // 					const texthash = hash.substring( 10 );
+
+    // 					// hex = colorhash;
+    // 					// pointLight.color.setHex( parseInt( colorhash, 16 ) );
+
+    // 					// fontName = reverseFontMap[ parseInt( fonthash ) ];
+    // 					// fontWeight = reverseWeightMap[ parseInt( weighthash ) ];
+
+    // 					// bevelEnabled = parseInt( bevelhash );
+
+    text = decodeURI(texthash);
+
+    // 					updatePermalink();
+
+    // 				} else {
+
+    // 					// pointLight.color.setHSL( Math.random(), 1, 0.5 );
+    // 					// hex = decimalToHex( pointLight.color.getHex() );
+
+}
+
+function refreshText() {
+
+    group.remove(textMesh);
+
+    if (!text) return;
+
+    createText();
+}
 
 
+
+
+
+function onDocumentKeyPress(event) {
+
+    const keyCode = event.which;
+
+    // backspace
+
+    if (keyCode == 8) {
+
+        event.preventDefault();
+
+    } else {
+
+        const ch = String.fromCharCode(keyCode);
+        text += ch;
+
+        refreshText();
+
+    }
+    console.log("keypress" + keyCode);
+
+}
+
+function onDocumentKeyDown(event) {
+
+    if (firstLetter) {
+
+        firstLetter = false;
+        text = '';
+
+    }
+
+    const keyCode = event.keyCode;
+
+    // backspace
+
+    if (keyCode == 8) {
+
+        event.preventDefault();
+
+        text = text.substring(0, text.length - 1);
+        refreshText();
+
+        return false;
+
+    }
+    console.log("keydown");
+}
+
+
+
+
+
+document.addEventListener('keypress', onDocumentKeyPress);
+document.addEventListener('keydown', onDocumentKeyDown);
+
+
+
+
+
+scene.add(group);
 
 /* -------------------------------------------------------------------------- */
 /*                                    light                                   */
