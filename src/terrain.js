@@ -249,6 +249,9 @@ var planeMaterial = new THREE.ShaderMaterial({
         uColArray:{
             value:[new THREE.Vector3(1.0, 0.6275, 0.2784),new THREE.Vector3(0.1451, 0.1451, 0.1451), new THREE.Vector3(6.2),new THREE.Vector3(0.102, 0.4157, 1.0)]
         },
+        uColPatternIndex:{
+            value:1
+        },
 
         fogColor: {
             type: "c",
@@ -425,20 +428,21 @@ function updateColor(pattern){
             col = new THREE.Color(0xefd1b5);
             scene.background = col;
             scene.fog.color = col;
-            planeMaterial.uniforms.uColArray.value = [new THREE.Vector3(1.0, 0.6275, 0.2784),new THREE.Vector3(0.1451, 0.1451, 0.1451), new THREE.Vector3(6.2),new THREE.Vector3(0.102, 0.4157, 1.0)];
+            planeMaterial.uniforms.uColPatternIndex.value=0;
           break;
         case 'dark':
-            col = new THREE.Color('black');
+            col = new THREE.Color(0x212432);
             scene.background = col;
             scene.fog.color = col;
-            planeMaterial.uniforms.uColArray.value = [new Vector3(0.1216, 0.1098, 0.8549),new Vector3(0.6863, 0.3843, 0.3843), new Vector3(1.3,0.1,1.2),new Vector3(0.651, 0.0314, 0.8392)];
+            planeMaterial.uniforms.uColPatternIndex.value=1;
+
 
             break;
         default:
             col = new THREE.Color(0xefd1b5);
             scene.background = col;
             scene.fog.color = col;
-            planeMaterial.uniforms.uColArray.value = [new THREE.Vector3(1.0, 0.6275, 0.2784),new THREE.Vector3(0.1451, 0.1451, 0.1451), new THREE.Vector3(6.2),new THREE.Vector3(0.102, 0.4157, 1.0)];
+            planeMaterial.uniforms.uColPatternIndex.value=0;
           
         }
 }
