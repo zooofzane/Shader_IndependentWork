@@ -13,6 +13,8 @@ import fragment from './shader/fragmentShader.glsl'
 import {
     GUI
 } from 'three/examples/jsm/libs/lil-gui.module.min.js';
+import {VertexNormalsHelper}from 'three/examples/jsm/helpers/VertexNormalsHelper.js'
+import { Vector3 } from 'three'
 
 // var typeface = require('three.regular.helvetiker');
 // THREE.typeface_js.loadFace(typeface);
@@ -34,10 +36,10 @@ document.body.appendChild(renderer.domElement);
 /*                               scene & camera                               */
 /* -------------------------------------------------------------------------- */
 const scene = new THREE.Scene();
-const bgColor = new THREE.Color("black");
-//0xefd1b5
+let bgColor = new THREE.Color(0xefd1b5);
 scene.background = bgColor;
-scene.fog = new THREE.Fog(bgColor, 1., 2000.);
+scene.fog = new THREE.Fog(bgColor, 1., 20.);
+
 const camera = new THREE.PerspectiveCamera(
     50,
     window.innerWidth / window.innerHeight,
@@ -73,7 +75,7 @@ fontLoader.load("https://threejs.org//examples/fonts/helvetiker_regular.typeface
         color: color
     });
     let text = new THREE.Mesh(textGeo, textMaterial);
-    scene.add(text);
+   // scene.add(text);
 });
 
 
@@ -83,11 +85,11 @@ fontLoader.load("https://threejs.org//examples/fonts/helvetiker_regular.typeface
 /* -------------------------------------------------------------------------- */
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.125);
 dirLight.position.set(0, 0, 1).normalize();
-//scene.add(dirLight);
+scene.add(dirLight);
 
 const pointLight = new THREE.PointLight(0xffffff, 1.5);
 pointLight.position.set(0, 100, 90);
-//scene.add(pointLight);
+scene.add(pointLight);
 
 
 
@@ -95,7 +97,7 @@ pointLight.position.set(0, 100, 90);
 /*                                    mesh                                    */
 /* -------------------------------------------------------------------------- */
 //terrain
-const planeGeometry = new THREE.PlaneGeometry(20, 20, 1500, 1500);
+const planeGeometry = new THREE.PlaneGeometry(20, 20, 150, 150);
 var planeMaterial = new THREE.ShaderMaterial({
     //    depthWrite: false,
     //    depthTest: false,
@@ -110,6 +112,10 @@ var planeMaterial = new THREE.ShaderMaterial({
         uNoise: {
             value: 0
         },
+        uColArray:{
+            value:[new THREE.Vector3(1.0, 0.6275, 0.2784),new THREE.Vector3(0.1451, 0.1451, 0.1451), new THREE.Vector3(6.2),new THREE.Vector3(0.102, 0.4157, 1.0)]
+        },
+
         fogColor: {
             type: "c",
             value: scene.fog.color
@@ -131,10 +137,12 @@ var planeMaterial = new THREE.ShaderMaterial({
 
 
 const terrainMesh = new THREE.Mesh(planeGeometry, planeMaterial);
+console.log(planeGeometry);
 terrainMesh.rotation.x = -Math.PI / 2;
 scene.add(terrainMesh);
 
-
+const helper = new VertexNormalsHelper( terrainMesh, 2, 0x00ff00, 1 );
+//scene.add( helper );
 
 let sunGeometry = new THREE.PlaneGeometry(50, 50);
 let sunMaterial = new THREE.ShaderMaterial({
@@ -195,8 +203,8 @@ let sunMaterial = new THREE.ShaderMaterial({
 })
 const sun = new THREE.Mesh(sunGeometry, sunMaterial);
 sun.position.z = -90;
-scene.add(sun);
-0
+//scene.add(sun);
+
 
 
 
@@ -245,8 +253,7 @@ window.addEventListener('resize', onWindowResize, false);
 /* -------------------------------------------------------------------------- */
 /*                                    GUI                                    */
 /* -------------------------------------------------------------------------- */
-
-
+let colorMap ="pink";
 const gui = new GUI(),
     propsLocal = {
         get height() {
@@ -258,6 +265,13 @@ const gui = new GUI(),
 
             planeMaterial.uniforms.uHeight.value = v;
 
+        },
+        get colorMap(){
+            return colorMap;
+         },
+        set colorMap(v){
+           colorMap = v;
+           updateColor(v);
         }
     };
 
@@ -266,13 +280,35 @@ const Terrain = gui.addFolder('Terrain');
 const texture = gui.addFolder('Texture');
 const colorPattern = gui.addFolder('ColorPattern');
 Terrain.add(propsLocal, 'height', 0., 10.);
+colorPattern.add( propsLocal, 'colorMap', [ 'pink', 'dark' ] ).onChange( function () {
 
-// gui.add( params, 'colorMap', [ 'rainbow', 'cooltowarm', 'blackbody', 'grayscale' ] ).onChange( function () {
+ } );
 
-//     updateColors();
-//     render();
+function updateColor(pattern){
+    let col;
+    switch (pattern) {
+        case 'pink':
+            col = new THREE.Color(0xefd1b5);
+            scene.background = col;
+            scene.fog.color = col;
+            planeMaterial.uniforms.uColArray.value = [new THREE.Vector3(1.0, 0.6275, 0.2784),new THREE.Vector3(0.1451, 0.1451, 0.1451), new THREE.Vector3(6.2),new THREE.Vector3(0.102, 0.4157, 1.0)];
+          break;
+        case 'dark':
+            col = new THREE.Color('black');
+            scene.background = col;
+            scene.fog.color = col;
+            planeMaterial.uniforms.uColArray.value = [new Vector3(0.1216, 0.1098, 0.8549),new Vector3(0.6863, 0.3843, 0.3843), new Vector3(1.3,0.1,1.2),new Vector3(0.651, 0.0314, 0.8392)];
 
-// } );
+            break;
+        default:
+            col = new THREE.Color(0xefd1b5);
+            scene.background = col;
+            scene.fog.color = col;
+            planeMaterial.uniforms.uColArray.value = [new THREE.Vector3(1.0, 0.6275, 0.2784),new THREE.Vector3(0.1451, 0.1451, 0.1451), new THREE.Vector3(6.2),new THREE.Vector3(0.102, 0.4157, 1.0)];
+          
+        }
+}
+updateColor(colorMap);
 /* -------------------------------------------------------------------------- */
 /*                                    loop                                    */
 /* -------------------------------------------------------------------------- */

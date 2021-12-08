@@ -158,29 +158,32 @@ vec3 estimateNormal(vec3 p) {
 
 
 void main() {
-    vNormal = estimateNormal(position);
-    vUv = uv;
-    mat4 LM = modelMatrix;
-          LM[2][3] = 0.0;
-          LM[3][0] = 0.0;
-          LM[3][1] = 0.0;
-          LM[3][2] = 0.0;
-
-    vec4 GN = LM * vec4(normal.xyz, 1.0);
-
-    vNN = normalize(GN.xyz);
-    vEye = normalize(GN.xyz-cameraPosition);
-
-
     vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+    vUv = uv;
+    
+    // mat4 LM = modelMatrix;
+    //       LM[2][3] = 0.0;
+    //       LM[3][0] = 0.0;
+    //       LM[3][1] = 0.0;
+    //       LM[3][2] = 0.0;
+
+    // vec4 GN = LM * vec4(vNormal.xyz, 1.0);
+
+    // vNN = normalize(GN.xyz);
+    // vEye = normalize(GN.xyz-cameraPosition);
+
+
+   
     mvPosition.y += generateHeight(position);
-    mvPosition.y -=1.;
+   // mvPosition.y -=1.;
 
     vPosition = mvPosition;
+
+
     vNoiseParam = generateHeight(position);
 
     gl_Position = projectionMatrix * mvPosition;
-    
+    vNormal = estimateNormal(position);
    
 
    

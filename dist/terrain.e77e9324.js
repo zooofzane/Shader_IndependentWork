@@ -38018,9 +38018,9 @@ function createPath(char, scale, offsetX, offsetY, data) {
 
 Font.prototype.isFont = true;
 },{"three":"../node_modules/three/build/three.module.js"}],"shader/vertexShader.glsl":[function(require,module,exports) {
-module.exports = "#define GLSLIFY 1\nuniform float uTime;\nuniform float uSize;\nuniform float uNoise;\nuniform float ustate;\nuniform float uHeight;\n\nvarying vec3 vColor;\nvarying vec3 vNormal;\nvarying vec4 vPosition;\nvarying vec3 vNN; \nvarying vec3 vEye;\nvarying vec2 vUv;\nvarying float vNoiseParam;\n\nattribute vec3 aRandom;\n\n/**\nnoise\n*/\n// Classic Perlin 3D Noise \n// by Stefan Gustavson\n//\nvec4 permute(vec4 x)\n{\n    return mod(((x*34.0)+1.0)*x, 289.0);\n}\nvec4 taylorInvSqrt(vec4 r)\n{\n    return 1.79284291400159 - 0.85373472095314 * r;\n}\nvec3 fade(vec3 t)\n{\n    return t*t*t*(t*(t*6.0-15.0)+10.0);\n}\n\nfloat cnoise(vec3 P)\n{\n    vec3 Pi0 = floor(P); // Integer part for indexing\n    vec3 Pi1 = Pi0 + vec3(1.0); // Integer part + 1\n    Pi0 = mod(Pi0, 289.0);\n    Pi1 = mod(Pi1, 289.0);\n    vec3 Pf0 = fract(P); // Fractional part for interpolation\n    vec3 Pf1 = Pf0 - vec3(1.0); // Fractional part - 1.0\n    vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);\n    vec4 iy = vec4(Pi0.yy, Pi1.yy);\n    vec4 iz0 = Pi0.zzzz;\n    vec4 iz1 = Pi1.zzzz;\n\n    vec4 ixy = permute(permute(ix) + iy);\n    vec4 ixy0 = permute(ixy + iz0);\n    vec4 ixy1 = permute(ixy + iz1);\n\n    vec4 gx0 = ixy0 / 7.0;\n    vec4 gy0 = fract(floor(gx0) / 7.0) - 0.5;\n    gx0 = fract(gx0);\n    vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);\n    vec4 sz0 = step(gz0, vec4(0.0));\n    gx0 -= sz0 * (step(0.0, gx0) - 0.5);\n    gy0 -= sz0 * (step(0.0, gy0) - 0.5);\n\n    vec4 gx1 = ixy1 / 7.0;\n    vec4 gy1 = fract(floor(gx1) / 7.0) - 0.5;\n    gx1 = fract(gx1);\n    vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);\n    vec4 sz1 = step(gz1, vec4(0.0));\n    gx1 -= sz1 * (step(0.0, gx1) - 0.5);\n    gy1 -= sz1 * (step(0.0, gy1) - 0.5);\n\n    vec3 g000 = vec3(gx0.x,gy0.x,gz0.x);\n    vec3 g100 = vec3(gx0.y,gy0.y,gz0.y);\n    vec3 g010 = vec3(gx0.z,gy0.z,gz0.z);\n    vec3 g110 = vec3(gx0.w,gy0.w,gz0.w);\n    vec3 g001 = vec3(gx1.x,gy1.x,gz1.x);\n    vec3 g101 = vec3(gx1.y,gy1.y,gz1.y);\n    vec3 g011 = vec3(gx1.z,gy1.z,gz1.z);\n    vec3 g111 = vec3(gx1.w,gy1.w,gz1.w);\n\n    vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));\n    g000 *= norm0.x;\n    g010 *= norm0.y;\n    g100 *= norm0.z;\n    g110 *= norm0.w;\n    vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));\n    g001 *= norm1.x;\n    g011 *= norm1.y;\n    g101 *= norm1.z;\n    g111 *= norm1.w;\n\n    float n000 = dot(g000, Pf0);\n    float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));\n    float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));\n    float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));\n    float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));\n    float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));\n    float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));\n    float n111 = dot(g111, Pf1);\n\n    vec3 fade_xyz = fade(Pf0);\n    vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);\n    vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);\n    float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x); \n    return  n_xyz+0.3;\n}\n\nfloat circleSDF(vec2 st, vec2 center){\n    return length(st-center);// (>0)\n}\n\nfloat curveSDF(vec2 st, float center){\n  return abs(st.x-center+sin(st.y * 0.7)*1.);\n}\n\nfloat generateHeight(vec3 pos){\n    float hill = 0.;\n    //create a flat path\n    float scale = 0.;\n    float width = 4.5;\n    scale = smoothstep(width/2.-1.2,width/2.+1.2,curveSDF(pos.xy,0.0));\n    \n    //make the hill noise from front to back\n    float a = step(pos.x,0.)*2.-1.;\n    a*=0.4;\n\n   vec3 p = vec3(pos.x*0.4+uTime*a,pos.y*0.3+uTime*0.4,pos.z);\n   hill += uHeight * cnoise(p);\n   hill += 1.* cnoise(vec3(pos.x*0.2+uTime*a,pos.y*0.3+0.5,pos.z));\n   hill += 1.* cnoise(vec3(pos.x*0.6+uTime*a,pos.y*0.1+0.5,pos.z));\n //  vec3 p2 = vec3(1.,pos.y*0.2+1.,pos.z)*0.7;\n //  hill += 7.7 * cnoise(p2);\n   hill *= scale *0.9;\n   hill += 0.5* cnoise(pos*0.2);\n   return hill;\n}\n\nfloat getDist(vec3 pos) { //get distance to the plane from the a input position\n    float distToGround = pos.z +  generateHeight(pos);\n    return distToGround;\n}\n\nvec3 estimateNormal(vec3 p) {\n    float SMALL_NUMMBER = 0.001;\n    vec3 n = vec3(\n        getDist(vec3(p.x + SMALL_NUMMBER, p.yz)) -\n        getDist(vec3(p.x - SMALL_NUMMBER, p.yz)),\n        getDist(vec3(p.x, p.y + SMALL_NUMMBER, p.z)) -\n        getDist(vec3(p.x, p.y - SMALL_NUMMBER, p.z)),\n        getDist(vec3(p.xy, p.z + SMALL_NUMMBER)) -\n        getDist(vec3(p.xy, p.z - SMALL_NUMMBER))\n    );\n    return normalize(n);\n}\n\nvoid main() {\n    vNormal = estimateNormal(position);\n    vUv = uv;\n    mat4 LM = modelMatrix;\n          LM[2][3] = 0.0;\n          LM[3][0] = 0.0;\n          LM[3][1] = 0.0;\n          LM[3][2] = 0.0;\n\n    vec4 GN = LM * vec4(normal.xyz, 1.0);\n\n    vNN = normalize(GN.xyz);\n    vEye = normalize(GN.xyz-cameraPosition);\n\n    vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );\n    mvPosition.y += generateHeight(position);\n    mvPosition.y -=1.;\n\n    vPosition = mvPosition;\n    vNoiseParam = generateHeight(position);\n\n    gl_Position = projectionMatrix * mvPosition;\n    \n   \n\n   \n\n   \n\n}\n\n";
+module.exports = "#define GLSLIFY 1\nuniform float uTime;\nuniform float uSize;\nuniform float uNoise;\nuniform float ustate;\nuniform float uHeight;\n\nvarying vec3 vColor;\nvarying vec3 vNormal;\nvarying vec4 vPosition;\nvarying vec3 vNN; \nvarying vec3 vEye;\nvarying vec2 vUv;\nvarying float vNoiseParam;\n\nattribute vec3 aRandom;\n\n/**\nnoise\n*/\n// Classic Perlin 3D Noise \n// by Stefan Gustavson\n//\nvec4 permute(vec4 x)\n{\n    return mod(((x*34.0)+1.0)*x, 289.0);\n}\nvec4 taylorInvSqrt(vec4 r)\n{\n    return 1.79284291400159 - 0.85373472095314 * r;\n}\nvec3 fade(vec3 t)\n{\n    return t*t*t*(t*(t*6.0-15.0)+10.0);\n}\n\nfloat cnoise(vec3 P)\n{\n    vec3 Pi0 = floor(P); // Integer part for indexing\n    vec3 Pi1 = Pi0 + vec3(1.0); // Integer part + 1\n    Pi0 = mod(Pi0, 289.0);\n    Pi1 = mod(Pi1, 289.0);\n    vec3 Pf0 = fract(P); // Fractional part for interpolation\n    vec3 Pf1 = Pf0 - vec3(1.0); // Fractional part - 1.0\n    vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);\n    vec4 iy = vec4(Pi0.yy, Pi1.yy);\n    vec4 iz0 = Pi0.zzzz;\n    vec4 iz1 = Pi1.zzzz;\n\n    vec4 ixy = permute(permute(ix) + iy);\n    vec4 ixy0 = permute(ixy + iz0);\n    vec4 ixy1 = permute(ixy + iz1);\n\n    vec4 gx0 = ixy0 / 7.0;\n    vec4 gy0 = fract(floor(gx0) / 7.0) - 0.5;\n    gx0 = fract(gx0);\n    vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);\n    vec4 sz0 = step(gz0, vec4(0.0));\n    gx0 -= sz0 * (step(0.0, gx0) - 0.5);\n    gy0 -= sz0 * (step(0.0, gy0) - 0.5);\n\n    vec4 gx1 = ixy1 / 7.0;\n    vec4 gy1 = fract(floor(gx1) / 7.0) - 0.5;\n    gx1 = fract(gx1);\n    vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);\n    vec4 sz1 = step(gz1, vec4(0.0));\n    gx1 -= sz1 * (step(0.0, gx1) - 0.5);\n    gy1 -= sz1 * (step(0.0, gy1) - 0.5);\n\n    vec3 g000 = vec3(gx0.x,gy0.x,gz0.x);\n    vec3 g100 = vec3(gx0.y,gy0.y,gz0.y);\n    vec3 g010 = vec3(gx0.z,gy0.z,gz0.z);\n    vec3 g110 = vec3(gx0.w,gy0.w,gz0.w);\n    vec3 g001 = vec3(gx1.x,gy1.x,gz1.x);\n    vec3 g101 = vec3(gx1.y,gy1.y,gz1.y);\n    vec3 g011 = vec3(gx1.z,gy1.z,gz1.z);\n    vec3 g111 = vec3(gx1.w,gy1.w,gz1.w);\n\n    vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));\n    g000 *= norm0.x;\n    g010 *= norm0.y;\n    g100 *= norm0.z;\n    g110 *= norm0.w;\n    vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));\n    g001 *= norm1.x;\n    g011 *= norm1.y;\n    g101 *= norm1.z;\n    g111 *= norm1.w;\n\n    float n000 = dot(g000, Pf0);\n    float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));\n    float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));\n    float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));\n    float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));\n    float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));\n    float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));\n    float n111 = dot(g111, Pf1);\n\n    vec3 fade_xyz = fade(Pf0);\n    vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);\n    vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);\n    float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x); \n    return  n_xyz+0.3;\n}\n\nfloat circleSDF(vec2 st, vec2 center){\n    return length(st-center);// (>0)\n}\n\nfloat curveSDF(vec2 st, float center){\n  return abs(st.x-center+sin(st.y * 0.7)*1.);\n}\n\nfloat generateHeight(vec3 pos){\n    float hill = 0.;\n    //create a flat path\n    float scale = 0.;\n    float width = 4.5;\n    scale = smoothstep(width/2.-1.2,width/2.+1.2,curveSDF(pos.xy,0.0));\n    \n    //make the hill noise from front to back\n    float a = step(pos.x,0.)*2.-1.;\n    a*=0.4;\n\n   vec3 p = vec3(pos.x*0.4+uTime*a,pos.y*0.3+uTime*0.4,pos.z);\n   hill += uHeight * cnoise(p);\n   hill += 1.* cnoise(vec3(pos.x*0.2+uTime*a,pos.y*0.3+0.5,pos.z));\n   hill += 1.* cnoise(vec3(pos.x*0.6+uTime*a,pos.y*0.1+0.5,pos.z));\n //  vec3 p2 = vec3(1.,pos.y*0.2+1.,pos.z)*0.7;\n //  hill += 7.7 * cnoise(p2);\n   hill *= scale *0.9;\n   hill += 0.5* cnoise(pos*0.2);\n   return hill;\n}\n\nfloat getDist(vec3 pos) { //get distance to the plane from the a input position\n    float distToGround = pos.z +  generateHeight(pos);\n    return distToGround;\n}\n\nvec3 estimateNormal(vec3 p) {\n    float SMALL_NUMMBER = 0.001;\n    vec3 n = vec3(\n        getDist(vec3(p.x + SMALL_NUMMBER, p.yz)) -\n        getDist(vec3(p.x - SMALL_NUMMBER, p.yz)),\n        getDist(vec3(p.x, p.y + SMALL_NUMMBER, p.z)) -\n        getDist(vec3(p.x, p.y - SMALL_NUMMBER, p.z)),\n        getDist(vec3(p.xy, p.z + SMALL_NUMMBER)) -\n        getDist(vec3(p.xy, p.z - SMALL_NUMMBER))\n    );\n    return normalize(n);\n}\n\nvoid main() {\n    vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );\n    vUv = uv;\n    \n    // mat4 LM = modelMatrix;\n    //       LM[2][3] = 0.0;\n    //       LM[3][0] = 0.0;\n    //       LM[3][1] = 0.0;\n    //       LM[3][2] = 0.0;\n\n    // vec4 GN = LM * vec4(vNormal.xyz, 1.0);\n\n    // vNN = normalize(GN.xyz);\n    // vEye = normalize(GN.xyz-cameraPosition);\n\n   \n    mvPosition.y += generateHeight(position);\n   // mvPosition.y -=1.;\n\n    vPosition = mvPosition;\n\n    vNoiseParam = generateHeight(position);\n\n    gl_Position = projectionMatrix * mvPosition;\n    vNormal = estimateNormal(position);\n   \n\n   \n\n   \n\n}\n\n";
 },{}],"shader/fragmentShader.glsl":[function(require,module,exports) {
-module.exports = "#define GLSLIFY 1\n varying vec4 vPosition;\nvarying vec3 vNormal;\nvarying float vNoiseParam;\nvarying vec2 vUv;\nvarying vec3 vNN; \nvarying vec3 vEye;\n\nuniform vec3 fogColor;\nuniform float fogNear;\nuniform float fogFar;\nuniform float uHeight;\n\nvec3 cosPalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {\n    return a + b * cos(6.28318 * (c * t + d));\n}\n\nvoid main() {\n   vec3 color = vec3(0.5); \n   vec3 fresnelColor = vec3(1.0, 0.4627, 0.9098);\n\n   /* -------------------------------------------------------------------------- */\n/*                                    texture                                 */\n/* -------------------------------------------------------------------------- */\n   //color related to height;\n  color = vec3(vNoiseParam*0.5)+0.4;\n\n/* -------------------------------------------------------------------------- */\n/*                                    color patthern                                   */\n/* -------------------------------------------------------------------------- */\n   //pink and yellow\n   float diff = dot(vec3(2., 4., 1.), vNormal) * 0.1;\n   vec3 brightness = vec3(1.0, 0.6275, 0.2784);\n   vec3 contrast = vec3(0.1451, 0.1451, 0.1451);\n   vec3 osc = vec3(6.2);\n   vec3 phase = vec3(0.102, 0.4157, 1.0);\n  // color *= cosPalette(vUv.y * 0.3, brightness, contrast, osc, phase);\n  // color += diff*0.4;\n\n   gl_FragColor = vec4(color, 1.);\n  \n   //fresnelColor\n   // gl_FragColor = vec4(gl_FragColor.rgb, 0.3);\n   // gl_FragColor.rgba +=  ( 1.0 - -min(dot(vEye, normalize(vNN) ), 0.0) ) * vec4(fresnelColor,0.0)*0.9;\n\n   //add fog\n   #ifdef USE_FOG\n      #ifdef USE_LOGDEPTHBUF_EXT\n         float depth = gl_FragDepthEXT / gl_FragCoord.w;\n      #else\n         float depth = gl_FragCoord.z / gl_FragCoord.w;\n      #endif\n      float fogFactor = smoothstep( fogNear, fogFar, depth );\n      gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );\n   #endif\n\n   // gl_FragColor = vec4(diff);\n}";
+module.exports = "#define GLSLIFY 1\n varying vec4 vPosition;\nvarying vec3 vNormal;\nvarying float vNoiseParam;\nvarying vec2 vUv;\nvarying vec3 vNN; \nvarying vec3 vEye;\n\nuniform vec3 fogColor;\nuniform float fogNear;\nuniform float fogFar;\nuniform float uHeight;\n\nuniform vec3 uColArray[4];\n\nvec3 cosPalette(float t, vec3 a, vec3 b, vec3 c, vec3 d) {\n    return a + b * cos(6.28318 * (c * t + d));\n}\n\nvoid main() {\n   vec3 color = vec3(0.5); \n   vec3 fresnelColor = vec3(1.0, 1.0, 1.0);\n\n   /* -------------------------------------------------------------------------- */\n/*                                    texture                                 */\n/* -------------------------------------------------------------------------- */\n   //color related to height;\n // color = vec3(vNoiseParam*0.5)+0.4;\n\n/* -------------------------------------------------------------------------- */\n/*                                    color patthern                                   */\n/* -------------------------------------------------------------------------- */\n   //gradient color\n   vec3 brightness = uColArray[0];\n   vec3 contrast =  uColArray[1];\n   vec3 osc =  uColArray[2];\n   vec3 phase =  uColArray[3];\n   color = cosPalette(vUv.y * 0.3, brightness, contrast, osc, phase);\n   \n   //add light\n   float diff = dot(normalize(vec3(0.5, -1., 0.)), vNormal);\n   diff += 1.;\n   diff *= 0.2;\n   color += diff;\n\n   gl_FragColor = vec4(color, 1.);\n  \n   // fresnelColor\n   // gl_FragColor = vec4(gl_FragColor.rgb, 0.0);\n   // gl_FragColor.rgba +=  ( 1.0- -min(dot(vEye, normalize(vNN) ), 0.0) ) * vec4(fresnelColor,1.0)*0.7;\n\n   //add fog\n   #ifdef USE_FOG\n      #ifdef USE_LOGDEPTHBUF_EXT\n         float depth = gl_FragDepthEXT / gl_FragCoord.w;\n      #else\n         float depth = gl_FragCoord.z / gl_FragCoord.w;\n      #endif\n      float fogFactor = smoothstep( fogNear, fogFar, depth );\n      gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );\n   #endif\n   \n   // gl_FragColor = vec4(diff);\n}";
 },{}],"../node_modules/three/examples/jsm/libs/lil-gui.module.min.js":[function(require,module,exports) {
 "use strict";
 
@@ -38600,7 +38600,89 @@ class g {
 exports.GUI = g;
 var _default = g;
 exports.default = _default;
-},{}],"terrain.js":[function(require,module,exports) {
+},{}],"../node_modules/three/examples/jsm/helpers/VertexNormalsHelper.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.VertexNormalsHelper = void 0;
+
+var _three = require("three");
+
+const _v1 = new _three.Vector3();
+
+const _v2 = new _three.Vector3();
+
+const _normalMatrix = new _three.Matrix3();
+
+class VertexNormalsHelper extends _three.LineSegments {
+  constructor(object, size = 1, color = 0xff0000) {
+    let nNormals = 0;
+    const objGeometry = object.geometry;
+
+    if (objGeometry && objGeometry.isGeometry) {
+      console.error('THREE.VertexNormalsHelper no longer supports Geometry. Use BufferGeometry instead.');
+      return;
+    } else if (objGeometry && objGeometry.isBufferGeometry) {
+      nNormals = objGeometry.attributes.normal.count;
+    } //
+
+
+    const geometry = new _three.BufferGeometry();
+    const positions = new _three.Float32BufferAttribute(nNormals * 2 * 3, 3);
+    geometry.setAttribute('position', positions);
+    super(geometry, new _three.LineBasicMaterial({
+      color,
+      toneMapped: false
+    }));
+    this.object = object;
+    this.size = size;
+    this.type = 'VertexNormalsHelper'; //
+
+    this.matrixAutoUpdate = false;
+    this.update();
+  }
+
+  update() {
+    this.object.updateMatrixWorld(true);
+
+    _normalMatrix.getNormalMatrix(this.object.matrixWorld);
+
+    const matrixWorld = this.object.matrixWorld;
+    const position = this.geometry.attributes.position; //
+
+    const objGeometry = this.object.geometry;
+
+    if (objGeometry && objGeometry.isGeometry) {
+      console.error('THREE.VertexNormalsHelper no longer supports Geometry. Use BufferGeometry instead.');
+      return;
+    } else if (objGeometry && objGeometry.isBufferGeometry) {
+      const objPos = objGeometry.attributes.position;
+      const objNorm = objGeometry.attributes.normal;
+      let idx = 0; // for simplicity, ignore index and drawcalls, and render every normal
+
+      for (let j = 0, jl = objPos.count; j < jl; j++) {
+        _v1.set(objPos.getX(j), objPos.getY(j), objPos.getZ(j)).applyMatrix4(matrixWorld);
+
+        _v2.set(objNorm.getX(j), objNorm.getY(j), objNorm.getZ(j));
+
+        _v2.applyMatrix3(_normalMatrix).normalize().multiplyScalar(this.size).add(_v1);
+
+        position.setXYZ(idx, _v1.x, _v1.y, _v1.z);
+        idx = idx + 1;
+        position.setXYZ(idx, _v2.x, _v2.y, _v2.z);
+        idx = idx + 1;
+      }
+    }
+
+    position.needsUpdate = true;
+  }
+
+}
+
+exports.VertexNormalsHelper = VertexNormalsHelper;
+},{"three":"../node_modules/three/build/three.module.js"}],"terrain.js":[function(require,module,exports) {
 "use strict";
 
 var THREE = _interopRequireWildcard(require("three"));
@@ -38616,6 +38698,8 @@ var _vertexShader = _interopRequireDefault(require("./shader/vertexShader.glsl")
 var _fragmentShader = _interopRequireDefault(require("./shader/fragmentShader.glsl"));
 
 var _lilGuiModuleMin = require("three/examples/jsm/libs/lil-gui.module.min.js");
+
+var _VertexNormalsHelper = require("three/examples/jsm/helpers/VertexNormalsHelper.js");
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -38647,10 +38731,9 @@ document.body.appendChild(renderer.domElement);
 /* -------------------------------------------------------------------------- */
 
 var scene = new THREE.Scene();
-var bgColor = new THREE.Color("black"); //0xefd1b5
-
+var bgColor = new THREE.Color(0xefd1b5);
 scene.background = bgColor;
-scene.fog = new THREE.Fog(bgColor, 1., 2000.);
+scene.fog = new THREE.Fog(bgColor, 1., 20.);
 var camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.z = 5;
 camera.position.y = 1;
@@ -38677,8 +38760,7 @@ fontLoader.load("https://threejs.org//examples/fonts/helvetiker_regular.typeface
   var textMaterial = new THREE.MeshBasicMaterial({
     color: color
   });
-  var text = new THREE.Mesh(textGeo, textMaterial);
-  scene.add(text);
+  var text = new THREE.Mesh(textGeo, textMaterial); // scene.add(text);
 });
 /* -------------------------------------------------------------------------- */
 
@@ -38687,11 +38769,11 @@ fontLoader.load("https://threejs.org//examples/fonts/helvetiker_regular.typeface
 /* -------------------------------------------------------------------------- */
 
 var dirLight = new THREE.DirectionalLight(0xffffff, 0.125);
-dirLight.position.set(0, 0, 1).normalize(); //scene.add(dirLight);
-
+dirLight.position.set(0, 0, 1).normalize();
+scene.add(dirLight);
 var pointLight = new THREE.PointLight(0xffffff, 1.5);
-pointLight.position.set(0, 100, 90); //scene.add(pointLight);
-
+pointLight.position.set(0, 100, 90);
+scene.add(pointLight);
 /* -------------------------------------------------------------------------- */
 
 /*                                    mesh                                    */
@@ -38699,7 +38781,7 @@ pointLight.position.set(0, 100, 90); //scene.add(pointLight);
 /* -------------------------------------------------------------------------- */
 //terrain
 
-var planeGeometry = new THREE.PlaneGeometry(20, 20, 1500, 1500);
+var planeGeometry = new THREE.PlaneGeometry(20, 20, 150, 150);
 var planeMaterial = new THREE.ShaderMaterial({
   //    depthWrite: false,
   //    depthTest: false,
@@ -38713,6 +38795,9 @@ var planeMaterial = new THREE.ShaderMaterial({
     },
     uNoise: {
       value: 0
+    },
+    uColArray: {
+      value: [new THREE.Vector3(1.0, 0.6275, 0.2784), new THREE.Vector3(0.1451, 0.1451, 0.1451), new THREE.Vector3(6.2), new THREE.Vector3(0.102, 0.4157, 1.0)]
     },
     fogColor: {
       type: "c",
@@ -38733,8 +38818,11 @@ var planeMaterial = new THREE.ShaderMaterial({
   fog: true
 });
 var terrainMesh = new THREE.Mesh(planeGeometry, planeMaterial);
+console.log(planeGeometry);
 terrainMesh.rotation.x = -Math.PI / 2;
 scene.add(terrainMesh);
+var helper = new _VertexNormalsHelper.VertexNormalsHelper(terrainMesh, 2, 0x00ff00, 1); //scene.add( helper );
+
 var sunGeometry = new THREE.PlaneGeometry(50, 50);
 var sunMaterial = new THREE.ShaderMaterial({
   vertexShader: "\n  varying vec2 vUv;\n  void main() {\n    vUv = uv;\n    float rotation = 0.0;\n    vec3 scale = vec3(1., 1., 1.);\n  \n    vec3 alignedPosition = position * scale;\n    vec2 pos = alignedPosition.xy;\n  \n    vec2 rotatedPosition;\n    rotatedPosition.x = cos(rotation) * alignedPosition.x - sin(rotation) * alignedPosition.y;\n    rotatedPosition.y = sin(rotation) * alignedPosition.x + cos(rotation) * alignedPosition.y;\n  \n    vec4 finalPosition;\n  \n    finalPosition = modelViewMatrix * vec4(1.0, 0.0, 0.0, 1.0);\n    finalPosition.xy += rotatedPosition;\n    finalPosition = projectionMatrix * finalPosition;\n  \n    gl_Position = finalPosition;\n  }",
@@ -38748,9 +38836,8 @@ var sunMaterial = new THREE.ShaderMaterial({
   }
 });
 var sun = new THREE.Mesh(sunGeometry, sunMaterial);
-sun.position.z = -90;
-scene.add(sun);
-0;
+sun.position.z = -90; //scene.add(sun);
+
 /* -------------------------------------------------------------------------- */
 
 /*                              [camera controler]                              */
@@ -38795,6 +38882,7 @@ window.addEventListener('resize', onWindowResize, false);
 
 /* -------------------------------------------------------------------------- */
 
+var colorMap = "pink";
 var gui = new _lilGuiModuleMin.GUI(),
     propsLocal = {
   get height() {
@@ -38803,17 +38891,51 @@ var gui = new _lilGuiModuleMin.GUI(),
 
   set height(v) {
     planeMaterial.uniforms.uHeight.value = v;
+  },
+
+  get colorMap() {
+    return colorMap;
+  },
+
+  set colorMap(v) {
+    colorMap = v;
+    updateColor(v);
   }
 
 };
 var Terrain = gui.addFolder('Terrain');
 var texture = gui.addFolder('Texture');
 var colorPattern = gui.addFolder('ColorPattern');
-Terrain.add(propsLocal, 'height', 0., 10.); // gui.add( params, 'colorMap', [ 'rainbow', 'cooltowarm', 'blackbody', 'grayscale' ] ).onChange( function () {
-//     updateColors();
-//     render();
-// } );
+Terrain.add(propsLocal, 'height', 0., 10.);
+colorPattern.add(propsLocal, 'colorMap', ['pink', 'dark']).onChange(function () {});
 
+function updateColor(pattern) {
+  var col;
+
+  switch (pattern) {
+    case 'pink':
+      col = new THREE.Color(0xefd1b5);
+      scene.background = col;
+      scene.fog.color = col;
+      planeMaterial.uniforms.uColArray.value = [new THREE.Vector3(1.0, 0.6275, 0.2784), new THREE.Vector3(0.1451, 0.1451, 0.1451), new THREE.Vector3(6.2), new THREE.Vector3(0.102, 0.4157, 1.0)];
+      break;
+
+    case 'dark':
+      col = new THREE.Color('black');
+      scene.background = col;
+      scene.fog.color = col;
+      planeMaterial.uniforms.uColArray.value = [new THREE.Vector3(0.1216, 0.1098, 0.8549), new THREE.Vector3(0.6863, 0.3843, 0.3843), new THREE.Vector3(1.3, 0.1, 1.2), new THREE.Vector3(0.651, 0.0314, 0.8392)];
+      break;
+
+    default:
+      col = new THREE.Color(0xefd1b5);
+      scene.background = col;
+      scene.fog.color = col;
+      planeMaterial.uniforms.uColArray.value = [new THREE.Vector3(1.0, 0.6275, 0.2784), new THREE.Vector3(0.1451, 0.1451, 0.1451), new THREE.Vector3(6.2), new THREE.Vector3(0.102, 0.4157, 1.0)];
+  }
+}
+
+updateColor(colorMap);
 /* -------------------------------------------------------------------------- */
 
 /*                                    loop                                    */
@@ -38829,7 +38951,7 @@ var animate = function animate() {
 };
 
 animate();
-},{"three":"../node_modules/three/build/three.module.js","three/examples/jsm/controls/OrbitControls":"../node_modules/three/examples/jsm/controls/OrbitControls.js","three/examples/jsm/geometries/TextGeometry.js":"../node_modules/three/examples/jsm/geometries/TextGeometry.js","three/examples/jsm/loaders/FontLoader.js":"../node_modules/three/examples/jsm/loaders/FontLoader.js","./shader/vertexShader.glsl":"shader/vertexShader.glsl","./shader/fragmentShader.glsl":"shader/fragmentShader.glsl","three/examples/jsm/libs/lil-gui.module.min.js":"../node_modules/three/examples/jsm/libs/lil-gui.module.min.js"}],"../node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"three":"../node_modules/three/build/three.module.js","three/examples/jsm/controls/OrbitControls":"../node_modules/three/examples/jsm/controls/OrbitControls.js","three/examples/jsm/geometries/TextGeometry.js":"../node_modules/three/examples/jsm/geometries/TextGeometry.js","three/examples/jsm/loaders/FontLoader.js":"../node_modules/three/examples/jsm/loaders/FontLoader.js","./shader/vertexShader.glsl":"shader/vertexShader.glsl","./shader/fragmentShader.glsl":"shader/fragmentShader.glsl","three/examples/jsm/libs/lil-gui.module.min.js":"../node_modules/three/examples/jsm/libs/lil-gui.module.min.js","three/examples/jsm/helpers/VertexNormalsHelper.js":"../node_modules/three/examples/jsm/helpers/VertexNormalsHelper.js"}],"../node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
