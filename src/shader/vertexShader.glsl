@@ -186,7 +186,6 @@ void main() {
     vNormal = estimateNormal(position);
    
 
-   
 
    
 
